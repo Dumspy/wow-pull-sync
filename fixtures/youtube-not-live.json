@@ -1,0 +1,22 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "fixture-not-live",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "etag": "fixture-not-live-item",
+      "id": "dQw4w9WgXcQ",
+      "snippet": {
+        "title": "A regular upload",
+        "liveBroadcastContent": "none"
+      },
+      "contentDetails": {
+        "duration": "PT3M33S"
+      }
+    }
+  ],
+  "pageInfo": {
+    "totalResults": 1,
+    "resultsPerPage": 1
+  }
+}

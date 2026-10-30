@@ -1,0 +1,126 @@
+{
+  "data": {
+    "reportData": {
+      "report": {
+        "code": "TPYJD2c4VkLZfBp9",
+        "title": "Average Pillagers",
+        "startTime": 1793296800000,
+        "endTime": 1793307396000,
+        "fights": [
+          {
+            "id": 1,
+            "name": "Trash",
+            "encounterID": 0,
+            "startTime": 120000,
+            "endTime": 210000,
+            "kill": false
+          },
+          {
+            "id": 2,
+            "name": "Nek'zali the Soulcoiler",
+            "encounterID": 3001,
+            "startTime": 480000,
+            "endTime": 665000,
+            "kill": false
+          },
+          {
+            "id": 3,
+            "name": "Nek'zali the Soulcoiler",
+            "encounterID": 3001,
+            "startTime": 840000,
+            "endTime": 1152000,
+            "kill": true
+          },
+          {
+            "id": 4,
+            "name": "Trash",
+            "encounterID": 0,
+            "startTime": 1260000,
+            "endTime": 1324000,
+            "kill": false
+          },
+          {
+            "id": 5,
+            "name": "Entombed Sentinels",
+            "encounterID": 3002,
+            "startTime": 1440000,
+            "endTime": 1688000,
+            "kill": true
+          },
+          {
+            "id": 6,
+            "name": "The Lost Explorers",
+            "encounterID": 3003,
+            "startTime": 1980000,
+            "endTime": 2181000,
+            "kill": false
+          },
+          {
+            "id": 7,
+            "name": "The Lost Explorers",
+            "encounterID": 3003,
+            "startTime": 2460000,
+            "endTime": 2816000,
+            "kill": true
+          },
+          {
+            "id": 8,
+            "name": "Vashnik the Malignant",
+            "encounterID": 3004,
+            "startTime": 3180000,
+            "endTime": 3469000,
+            "kill": true
+          },
+          {
+            "id": 9,
+            "name": "Sszorak",
+            "encounterID": 3005,
+            "startTime": 4080000,
+            "endTime": 4234000,
+            "kill": false
+          },
+          {
+            "id": 10,
+            "name": "Sszorak",
+            "encounterID": 3005,
+            "startTime": 4740000,
+            "endTime": 5007000,
+            "kill": false
+          },
+          {
+            "id": 11,
+            "name": "Sszorak",
+            "encounterID": 3005,
+            "startTime": 5580000,
+            "endTime": 5981000,
+            "kill": true
+          },
+          {
+            "id": 12,
+            "name": "The Twin Fangs",
+            "encounterID": 3006,
+            "startTime": 6720000,
+            "endTime": 7054000,
+            "kill": true
+          },
+          {
+            "id": 13,
+            "name": "The Coiled Altar",
+            "encounterID": 3007,
+            "startTime": 8400000,
+            "endTime": 8588000,
+            "kill": false
+          },
+          {
+            "id": 14,
+            "name": "The Coiled Altar",
+            "encounterID": 3007,
+            "startTime": 10500000,
+            "endTime": 10596000,
+            "kill": false
+          }
+        ]
+      }
+    }
+  }
+}
