@@ -30,6 +30,8 @@ export function buildPulls(
       pullNumber,
       durationMs: Math.max(0, fight.endTime - fight.startTime),
       bossPercentage: fight.bossPercentage,
+      startedAt: report.startTime + fight.startTime,
+      endedAt: report.startTime + fight.endTime,
       vodSeconds: match.vodSeconds,
       inVod: match.inVod,
     };

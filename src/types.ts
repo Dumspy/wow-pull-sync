@@ -29,6 +29,10 @@ export interface Pull {
   pullNumber: number;
   durationMs: number;
   bossPercentage: number | null;
+  /** Wall-clock epoch milliseconds when the pull started. */
+  startedAt: number;
+  /** Wall-clock epoch milliseconds when the pull ended. */
+  endedAt: number;
   vodSeconds: number;
   inVod: boolean;
 }
@@ -38,6 +42,8 @@ export interface PullSyncResponse {
   videoTitle: string;
   reportCode: string;
   reportTitle: string;
+  /** Wall-clock epoch milliseconds of video second 0. */
+  vodStartedAtMs: number;
   vodDurationSeconds: number;
   pulls: Pull[];
 }

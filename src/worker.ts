@@ -68,6 +68,7 @@ async function handlePulls(request: Request, env: Env): Promise<Response> {
       videoTitle: vod.title,
       reportCode: report.code || code,
       reportTitle: report.title,
+      vodStartedAtMs: vod.actualStartMs,
       vodDurationSeconds: vod.durationSeconds,
       pulls: buildPulls(report, vod, offsetSeconds),
     };
