@@ -5,6 +5,7 @@ export interface Fight {
   startTime: number;
   endTime: number;
   kill: boolean | null;
+  bossPercentage: number | null;
 }
 
 export interface ReportSummary {
@@ -27,6 +28,7 @@ export interface Pull {
   kill: boolean;
   pullNumber: number;
   durationMs: number;
+  bossPercentage: number | null;
   vodSeconds: number;
   inVod: boolean;
 }

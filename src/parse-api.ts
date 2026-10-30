@@ -46,6 +46,7 @@ export function readReport(body: unknown): ReportSummary {
       startTime: fight.startTime,
       endTime: fight.endTime,
       kill: typeof fight.kill === "boolean" ? fight.kill : null,
+      bossPercentage: typeof fight.bossPercentage === "number" ? fight.bossPercentage : null,
     };
   });
   return {

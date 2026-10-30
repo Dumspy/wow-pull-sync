@@ -3,10 +3,11 @@ import { HttpError } from "./http-error";
 
 export async function fetchYoutubeBody(
   videoId: string,
+  vodUrl: string,
   apiKey: string,
   useFixtures: boolean,
 ): Promise<unknown> {
-  if (useFixtures) return fixtureYoutubeBody(videoId);
+  if (useFixtures) return fixtureYoutubeBody(videoId, vodUrl);
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
   url.searchParams.set("part", "snippet,contentDetails,liveStreamingDetails");
   url.searchParams.set("id", videoId);

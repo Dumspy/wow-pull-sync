@@ -6,7 +6,7 @@ import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { formatClock } from "./format";
+import { formatClock, formatPercent, formatSeconds } from "./format";
 import { YoutubePlayer } from "./player";
 
 export function App() {
@@ -147,7 +147,9 @@ export function App() {
             <CardContent>
               <YoutubePlayer videoId={result.videoId} seekRef={seekRef} />
               {playingFrom != null ? (
-                <p className="pt-2 text-muted-foreground">Playing from {formatClock(playingFrom)}</p>
+                <p className="pt-2 text-muted-foreground">
+                  Playing from {formatClock(playingFrom)} · seekTo({formatSeconds(playingFrom)})
+                </p>
               ) : null}
             </CardContent>
           </Card>
@@ -202,7 +204,10 @@ function PullBody({ pull }: { pull: Pull }) {
       </span>
       <span className="min-w-0">
         <span className="block truncate font-medium text-foreground">{pull.bossName}</span>
-        <span className="text-muted-foreground">Pull {pull.pullNumber}</span>
+        <span className="text-muted-foreground">
+          Pull {pull.pullNumber}
+          {pull.bossPercentage != null ? ` · ${formatPercent(pull.bossPercentage)}` : ""}
+        </span>
       </span>
       <span className="text-right tabular-nums">
         <span className="block">{formatClock(pull.durationMs / 1000)}</span>

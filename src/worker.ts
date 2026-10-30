@@ -59,7 +59,7 @@ async function handlePulls(request: Request, env: Env): Promise<Response> {
   try {
     const [reportBody, youtubeBody] = await Promise.all([
       fetchReportBody(code, env.WCL_CLIENT_ID ?? "", env.WCL_CLIENT_SECRET ?? "", useFixtures),
-      fetchYoutubeBody(videoId, env.YOUTUBE_API_KEY ?? "", useFixtures),
+      fetchYoutubeBody(videoId, body.vodUrl, env.YOUTUBE_API_KEY ?? "", useFixtures),
     ]);
     const report = readReport(reportBody);
     const vod = readYoutubeVideo(youtubeBody);

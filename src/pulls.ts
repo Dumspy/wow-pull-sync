@@ -29,6 +29,7 @@ export function buildPulls(
       kill: fight.kill === true,
       pullNumber,
       durationMs: Math.max(0, fight.endTime - fight.startTime),
+      bossPercentage: fight.bossPercentage,
       vodSeconds: match.vodSeconds,
       inVod: match.inVod,
     };
