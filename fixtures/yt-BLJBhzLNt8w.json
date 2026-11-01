@@ -1,0 +1,71 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "kfI0J7gw7pXwxo7O-Xa6Nm8_Fxc",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "etag": "UWzqeuw0vaqXTc8y5LDouky8AwM",
+      "id": "BLJBhzLNt8w",
+      "snippet": {
+        "publishedAt": "2026-10-29T18:37:48Z",
+        "channelId": "UCl484gVG-v9uBMwIHNKNCcg",
+        "title": "Average Pillagers - 29/10/26",
+        "description": "",
+        "thumbnails": {
+          "default": {
+            "url": "https://i.ytimg.com/vi/BLJBhzLNt8w/default.jpg",
+            "width": 120,
+            "height": 90
+          },
+          "medium": {
+            "url": "https://i.ytimg.com/vi/BLJBhzLNt8w/mqdefault.jpg",
+            "width": 320,
+            "height": 180
+          },
+          "high": {
+            "url": "https://i.ytimg.com/vi/BLJBhzLNt8w/hqdefault.jpg",
+            "width": 480,
+            "height": 360
+          },
+          "standard": {
+            "url": "https://i.ytimg.com/vi/BLJBhzLNt8w/sddefault.jpg",
+            "width": 640,
+            "height": 480
+          },
+          "maxres": {
+            "url": "https://i.ytimg.com/vi/BLJBhzLNt8w/maxresdefault.jpg",
+            "width": 1280,
+            "height": 720
+          }
+        },
+        "channelTitle": "Felix Berger (Dispy)",
+        "categoryId": "20",
+        "liveBroadcastContent": "none",
+        "defaultLanguage": "da",
+        "localized": {
+          "title": "Average Pillagers - 29/10/26",
+          "description": ""
+        },
+        "defaultAudioLanguage": "en-US"
+      },
+      "contentDetails": {
+        "duration": "PT2H38M15S",
+        "dimension": "2d",
+        "definition": "hd",
+        "caption": "false",
+        "licensedContent": false,
+        "contentRating": {},
+        "projection": "rectangular"
+      },
+      "liveStreamingDetails": {
+        "actualStartTime": "2026-10-29T18:38:02Z",
+        "actualEndTime": "2026-10-29T21:16:20Z",
+        "scheduledStartTime": "2026-10-29T18:37:49Z"
+      }
+    }
+  ],
+  "pageInfo": {
+    "totalResults": 1,
+    "resultsPerPage": 1
+  }
+}

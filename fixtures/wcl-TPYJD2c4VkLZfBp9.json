@@ -1,0 +1,302 @@
+{
+  "data": {
+    "reportData": {
+      "report": {
+        "title": "AP Main Raid 29/10/26",
+        "startTime": 1793299984610,
+        "endTime": 1793308447701,
+        "zone": {
+          "name": "The Venomous Abyss"
+        },
+        "fights": [
+          {
+            "id": 1,
+            "name": "Ula'tek",
+            "startTime": 569089,
+            "endTime": 588092,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 99.99,
+            "fightPercentage": 99.99
+          },
+          {
+            "id": 2,
+            "name": "Ula'tek",
+            "startTime": 817440,
+            "endTime": 889358,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 90.11,
+            "fightPercentage": 92.95
+          },
+          {
+            "id": 3,
+            "name": "Ula'tek",
+            "startTime": 986690,
+            "endTime": 1278528,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 64.1,
+            "fightPercentage": 73.3
+          },
+          {
+            "id": 4,
+            "name": "Ula'tek",
+            "startTime": 1330346,
+            "endTime": 1455230,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 83.08,
+            "fightPercentage": 87.94
+          },
+          {
+            "id": 5,
+            "name": "Ula'tek",
+            "startTime": 1498850,
+            "endTime": 1656781,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 76.74,
+            "fightPercentage": 83.42
+          },
+          {
+            "id": 6,
+            "name": "Ula'tek",
+            "startTime": 1718807,
+            "endTime": 1997728,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 64.88,
+            "fightPercentage": 71.69
+          },
+          {
+            "id": 7,
+            "name": "Ula'tek",
+            "startTime": 2047975,
+            "endTime": 2203006,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 79.74,
+            "fightPercentage": 85.56
+          },
+          {
+            "id": 8,
+            "name": "Ula'tek",
+            "startTime": 2286047,
+            "endTime": 2522818,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 62.77,
+            "fightPercentage": 67.22
+          },
+          {
+            "id": 9,
+            "name": "Ula'tek",
+            "startTime": 2565147,
+            "endTime": 2747095,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 64.32,
+            "fightPercentage": 74.57
+          },
+          {
+            "id": 10,
+            "name": "Ula'tek",
+            "startTime": 2807178,
+            "endTime": 3100731,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 63.24,
+            "fightPercentage": 72.68
+          },
+          {
+            "id": 11,
+            "name": "Ula'tek",
+            "startTime": 3156062,
+            "endTime": 3287677,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 79.98,
+            "fightPercentage": 85.73
+          },
+          {
+            "id": 12,
+            "name": "Ula'tek",
+            "startTime": 3371166,
+            "endTime": 3507066,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 79.76,
+            "fightPercentage": 85.57
+          },
+          {
+            "id": 13,
+            "name": "Ula'tek",
+            "startTime": 3560868,
+            "endTime": 3801537,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 62.41,
+            "fightPercentage": 66.96
+          },
+          {
+            "id": 14,
+            "name": "Ula'tek",
+            "startTime": 3896434,
+            "endTime": 3985381,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 86.69,
+            "fightPercentage": 90.51
+          },
+          {
+            "id": 15,
+            "name": "Ula'tek",
+            "startTime": 4029745,
+            "endTime": 4197682,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 68.73,
+            "fightPercentage": 77.72
+          },
+          {
+            "id": 16,
+            "name": "Ula'tek",
+            "startTime": 4267104,
+            "endTime": 4757019,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 23.82,
+            "fightPercentage": 16.97
+          },
+          {
+            "id": 17,
+            "name": "Ula'tek",
+            "startTime": 4927787,
+            "endTime": 5060447,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 80.02,
+            "fightPercentage": 85.76
+          },
+          {
+            "id": 18,
+            "name": "Ula'tek",
+            "startTime": 5109992,
+            "endTime": 5277934,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 70.17,
+            "fightPercentage": 78.74
+          },
+          {
+            "id": 19,
+            "name": "Ula'tek",
+            "startTime": 5341356,
+            "endTime": 5662302,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 52.63,
+            "fightPercentage": 47.49
+          },
+          {
+            "id": 20,
+            "name": "Ula'tek",
+            "startTime": 6400566,
+            "endTime": 6447500,
+            "kill": false,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 91.36,
+            "fightPercentage": 93.84
+          },
+          {
+            "id": 21,
+            "name": "Ula'tek",
+            "startTime": 6512751,
+            "endTime": 7111763,
+            "kill": true,
+            "encounterID": 3492,
+            "difficulty": 5,
+            "bossPercentage": 0.01,
+            "fightPercentage": 0
+          },
+          {
+            "id": 22,
+            "name": "Venomous Heart / Ula'tek",
+            "startTime": 7111767,
+            "endTime": 7111819,
+            "kill": null,
+            "encounterID": 0,
+            "difficulty": null,
+            "bossPercentage": null,
+            "fightPercentage": null
+          },
+          {
+            "id": 23,
+            "name": "Tidebound Brute",
+            "startTime": 7909498,
+            "endTime": 7992523,
+            "kill": null,
+            "encounterID": 0,
+            "difficulty": null,
+            "bossPercentage": null,
+            "fightPercentage": null
+          },
+          {
+            "id": 24,
+            "name": "Nymrissa Wavecaller",
+            "startTime": 8004610,
+            "endTime": 8004618,
+            "kill": null,
+            "encounterID": 0,
+            "difficulty": null,
+            "bossPercentage": null,
+            "fightPercentage": null
+          },
+          {
+            "id": 25,
+            "name": "Nymrissa Wavecaller",
+            "startTime": 8004621,
+            "endTime": 8004621,
+            "kill": null,
+            "encounterID": 0,
+            "difficulty": null,
+            "bossPercentage": null,
+            "fightPercentage": null
+          },
+          {
+            "id": 26,
+            "name": "Nymrissa Wavecaller",
+            "startTime": 8158832,
+            "endTime": 8444963,
+            "kill": true,
+            "encounterID": 3379,
+            "difficulty": 5,
+            "bossPercentage": 0.01,
+            "fightPercentage": 0.01
+          }
+        ]
+      }
+    }
+  }
+}
