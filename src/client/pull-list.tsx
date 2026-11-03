@@ -59,7 +59,7 @@ export function PullList({
           <section key={key}>
             <button
               type="button"
-              className="sticky top-0 flex w-full items-center gap-2 border-0 bg-card px-2 py-1.5 text-left font-medium"
+              className="sticky top-0 z-10 flex w-full items-center gap-2 border-0 bg-card px-2 py-1.5 text-left font-medium"
               aria-expanded={open}
               onClick={() => setCollapsed((current) => ({ ...current, [key]: open }))}
             >
