@@ -50,7 +50,7 @@ Add `?fixture=outside` to the VOD URL to serve the same video with `actualStartT
 
 Deploy from this directory with `npm run deploy`, or with `npx wrangler deploy` after `npm run build`.
 
-Cloudflare's Git integration (Workers Builds) can deploy on push instead. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. The Worker name in Cloudflare has to match `name` in `wrangler.jsonc`. Turn off builds for branches other than the production branch. Those builds publish preview URLs, and the preview URLs are public.
+Cloudflare's Git integration (Workers Builds) can deploy on push instead. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. The Worker name in Cloudflare has to match `name` in `wrangler.jsonc`. For other branches, turn preview builds on and leave the preview command as `npx wrangler preview`. That command keeps one URL per branch (`<branch>-pull-sync.<account-subdomain>.workers.dev`) and Cloudflare posts it on the pull request. `npx wrangler versions upload` instead uploads a version and, with `preview_urls` on, returns a new Version URL each time (`<version>-pull-sync.<account-subdomain>.workers.dev`). It does not post that Preview URL comment.
 
 Set the three runtime secrets once. Later deploys keep them.
 
@@ -60,6 +60,10 @@ npx wrangler secret put WCL_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
 ```
 
-`workers_dev` and `preview_urls` are off, so the Worker has no `workers.dev` URL and no version preview URL. Attach a custom domain or a route outside `wrangler.jsonc`. Cloudflare Access can sit in front of that hostname. Set `workers_dev` back to `true` and deploy if you want the `workers.dev` URL for a quick test.
+A branch Preview does not inherit those secrets. Set the same three on the Previews base (`npx wrangler preview base-config secret put <NAME>`) or the preview page cannot call the APIs.
+
+`workers_dev` is off and `preview_urls` is on. The Worker has no production `workers.dev` URL. Version URLs and branch Preview URLs still work, on the account's `workers.dev` subdomain, not on the Worker's own route. Attach a custom domain or a route outside `wrangler.jsonc`.
+
+Those preview hostnames are public. An Access application on the custom domain does not cover them. Turn on Cloudflare Access for preview deployments before the first preview build. A check of `Cf-Access-Jwt-Assertion` inside the Worker only runs if Access is already in front of that hostname. Without that, the header is absent and the check rejects every request.
 
 Pull requests run `npm ci`, `npm test`, and `npm run build`.
