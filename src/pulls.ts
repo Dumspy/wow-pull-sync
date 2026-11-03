@@ -13,9 +13,11 @@ export function buildPulls(
     .sort((a, b) => a.startTime - b.startTime || a.id - b.id);
 
   const seen = new Map<number, number>();
+
   return bosses.map((fight) => {
     const pullNumber = (seen.get(fight.encounterID) ?? 0) + 1;
     seen.set(fight.encounterID, pullNumber);
+
     const match = matchPullToVod({
       reportStartMs: report.startTime,
       fightStartMs: fight.startTime,
@@ -23,6 +25,7 @@ export function buildPulls(
       vodDurationSeconds: vod.durationSeconds,
       offsetSeconds,
     });
+
     return {
       fightId: fight.id,
       bossName: fight.name,

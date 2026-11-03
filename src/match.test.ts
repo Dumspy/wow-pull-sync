@@ -31,11 +31,13 @@ describe("matchPullToVod", () => {
       vodSeconds: 75,
       inVod: true,
     });
+
     const pulledForward = matchPullToVod({
       ...inRange,
       vodDurationSeconds: 30,
       offsetSeconds: -40,
     });
+
     expect(pulledForward).toEqual({ vodSeconds: 20, inVod: true });
   });
 

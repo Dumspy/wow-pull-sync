@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import { isBoolean, isJsonArray, isJsonObject, isNumber, isString, type Json } from "../json";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
 import type { Pull, PullSyncResponse } from "../types";
 import { Button, buttonVariants } from "./components/ui/button";
@@ -20,12 +21,45 @@ interface RaidSession {
   pulls: Pull[];
 }
 
+function isPull(value: Json | Pull): value is Pull {
+  if (!isJsonObject(value)) return false;
+
+  return (
+    isNumber(value.fightId) &&
+    isString(value.bossName) &&
+    isBoolean(value.kill) &&
+    isNumber(value.pullNumber) &&
+    isNumber(value.durationMs) &&
+    (value.bossPercentage === null || isNumber(value.bossPercentage)) &&
+    isNumber(value.startedAt) &&
+    isNumber(value.endedAt) &&
+    isNumber(value.vodSeconds) &&
+    isBoolean(value.inVod)
+  );
+}
+
+function isPullSyncResponse(value: Json | PullSyncResponse): value is PullSyncResponse {
+  if (!isJsonObject(value) || !isJsonArray(value.pulls)) return false;
+
+  return (
+    isString(value.videoId) &&
+    isString(value.videoTitle) &&
+    isString(value.reportCode) &&
+    isString(value.reportTitle) &&
+    isNumber(value.vodStartedAtMs) &&
+    isNumber(value.vodDurationSeconds) &&
+    value.pulls.every(isPull)
+  );
+}
+
 const REPORT = "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9";
 const VOD = "https://youtube.com/live/BLJBhzLNt8w";
 
 function reportHref(code: string, fightId: number | null): string {
   const base = `https://www.warcraftlogs.com/reports/${encodeURIComponent(code)}`;
+
   if (fightId == null) return base;
+
   return `${base}#fight=${fightId}`;
 }
 
@@ -35,6 +69,7 @@ function pullSummary(pull: Pull): string {
     : pull.bossPercentage != null
       ? formatPercent(pull.bossPercentage)
       : "Wipe";
+
   return `${pull.bossName} · #${pull.pullNumber} · ${result}`;
 }
 
@@ -63,8 +98,10 @@ export function App() {
   useEffect(() => {
     if (!player || !active || !session || activeId == null) return;
     const pull = session.pulls.find((item) => item.fightId === activeId);
+
     if (!pull || !pullInSource(pull, active)) return;
     const seconds = pullToVideoSeconds(pull, active);
+
     return player.onReady(() => {
       player.seekTo(seconds);
     });
@@ -78,6 +115,7 @@ export function App() {
 
   function selectPull(pull: Pull) {
     setActiveId(pull.fightId);
+
     if (!active || !pullInSource(pull, active)) return;
     player?.seekTo(pullToVideoSeconds(pull, active));
   }
@@ -85,9 +123,12 @@ export function App() {
   function step(direction: -1 | 1) {
     if (!session || session.pulls.length === 0) return;
     const index = session.pulls.findIndex((pull) => pull.fightId === activeId);
+
     const nextIndex =
       index < 0 ? (direction === 1 ? 0 : session.pulls.length - 1) : index + direction;
+
     const pull = session.pulls[nextIndex];
+
     if (!pull) return;
     selectPull(pull);
   }
@@ -96,39 +137,52 @@ export function App() {
     event.preventDefault();
     setError(null);
     const offsetSeconds = offsetText.trim() === "" ? 0 : Number(offsetText);
+
     if (!Number.isFinite(offsetSeconds)) {
       setError("Offset must be a number of seconds.");
+
       return;
     }
+
     setLoading(true);
+
     try {
       const response = await fetch("/api/pulls", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ reportUrl, vodUrl, offsetSeconds: 0 }),
       });
-      const body = (await response.json()) as PullSyncResponse & { error?: string };
+
+      const payload: Json = await response.json();
+
       if (!response.ok) {
-        setError(body.error || "Something went wrong loading that raid.");
+        const error = isJsonObject(payload) ? payload.error : undefined;
+
+        setError(isString(error) && error ? error : "Something went wrong loading that raid.");
+
         return;
       }
-      if (typeof body.vodStartedAtMs !== "number" || !Array.isArray(body.pulls)) {
+
+      if (!isPullSyncResponse(payload)) {
         setError("The app returned an unexpected response.");
+
         return;
       }
+
       const source: VideoSource = {
         kind: "youtube",
-        id: body.videoId,
-        startedAt: body.vodStartedAtMs,
-        duration: body.vodDurationSeconds,
+        id: payload.videoId,
+        startedAt: payload.vodStartedAtMs,
+        duration: payload.vodDurationSeconds,
         offset: offsetSeconds,
       };
-      const pulls = body.pulls;
+
+      const pulls = payload.pulls;
       const first = pulls.find((pull) => pullInSource(pull, source)) ?? pulls[0] ?? null;
       setSession({
-        reportCode: body.reportCode,
-        reportTitle: body.reportTitle,
-        videoTitle: body.videoTitle,
+        reportCode: payload.reportCode,
+        reportTitle: payload.reportTitle,
+        videoTitle: payload.videoTitle,
         pulls,
       });
       setSources([source]);
@@ -266,6 +320,7 @@ export function App() {
             onChange={(event) => {
               setOffsetText(event.target.value);
               const next = Number(event.target.value);
+
               if (event.target.value.trim() !== "" && Number.isFinite(next)) applyOffset(next);
             }}
             className="h-7 w-16 px-1.5"

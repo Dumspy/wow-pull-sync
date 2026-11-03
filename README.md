@@ -34,10 +34,11 @@ Scripts, as defined in `package.json`:
 | `npm run dev` | `vite` |
 | `npm run build` | `vite build` |
 | `npm run preview` | `vite preview` |
+| `npm run lint` | `oxlint` |
 | `npm test` | `vitest run` |
 | `npm run deploy` | `npm run build && wrangler deploy` |
 
-`npm run dev` runs the Worker and the page together on the Workers runtime. `npm test` is the timestamp unit tests.
+`npm run dev` runs the Worker and the page together on the Workers runtime. `npm run lint` checks the TypeScript. `npm test` is the timestamp unit tests.
 
 With `USE_FIXTURES=true`, these two links load the recorded night. Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32.
 
@@ -66,4 +67,4 @@ A branch Preview does not inherit those secrets. Set the same three on the Previ
 
 Those preview hostnames are public. An Access application on the custom domain does not cover them. Turn on Cloudflare Access for preview deployments before the first preview build. A check of `Cf-Access-Jwt-Assertion` inside the Worker only runs if Access is already in front of that hostname. Without that, the header is absent and the check rejects every request.
 
-Pull requests run `npm ci`, `npm test`, and `npm run build`.
+Pull requests run `npm ci`, `npm run lint`, `npm test`, and `npm run build`.

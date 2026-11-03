@@ -70,6 +70,7 @@ describe("recorded raid night", () => {
     pulls.forEach((pull, index) => {
       const row = expected[index];
       expect(row, `row ${index}`).toBeDefined();
+
       if (!row) return;
       const [fightId, boss, pullNumber, kill, duration, bossPercent, vodSec, timestamp] = row;
       expect(pull.fightId).toBe(fightId);
@@ -98,9 +99,11 @@ describe("recorded raid night", () => {
 describe("pulls outside the VOD", () => {
   it("marks pulls before a later stream start as not in the VOD", () => {
     const report = readReport(fixtureReportBody("TPYJD2c4VkLZfBp9"));
+
     const late = readYoutubeVideo(
       fixtureYoutubeBody(FIXTURE_VIDEO_ID, "https://youtube.com/live/BLJBhzLNt8w?fixture=outside"),
     );
+
     expect(late.actualStartMs - Date.parse("2026-10-29T18:38:02Z")).toBe(30 * 60 * 1000);
     expect(late.durationSeconds).toBe(9495);
     const pulls = buildPulls(report, late, 0);
@@ -114,11 +117,15 @@ describe("pulls outside the VOD", () => {
 describe("youtube errors", () => {
   it("rejects the recorded non-live video", () => {
     expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(HttpError);
+
     try {
       readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID));
     } catch (error) {
       expect(error).toBeInstanceOf(HttpError);
-      expect((error as HttpError).message).toBe("That video is not a past live stream.");
+
+      if (!(error instanceof HttpError)) return;
+
+      expect(error.message).toBe("That video is not a past live stream.");
     }
   });
 });

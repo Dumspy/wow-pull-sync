@@ -2,6 +2,7 @@ import wclReport from "../fixtures/wcl-TPYJD2c4VkLZfBp9.json";
 import youtubeLive from "../fixtures/yt-BLJBhzLNt8w.json";
 import youtubeLateStart from "../fixtures/yt-BLJBhzLNt8w-late-start.json";
 import youtubeNotLive from "../fixtures/yt-nonlive.json";
+import { isJsonArray, isJsonObject, type Json } from "./json";
 
 /** Recorded responses for the 29 Oct 2026 Average Pillagers report and VOD. */
 export const FIXTURE_REPORT_CODE = "TPYJD2c4VkLZfBp9";
@@ -15,27 +16,42 @@ export const FIXTURE_NON_LIVE_VIDEO_ID = "dQw4w9WgXcQ";
  */
 export const OUTSIDE_FIXTURE = "outside";
 
-export function fixtureReportBody(code: string): unknown {
+export function fixtureReportBody(code: string): Json {
   if (code !== FIXTURE_REPORT_CODE) {
     return { data: { reportData: { report: null } } };
   }
-  return wclReport;
+
+  return recordedJson(wclReport);
 }
 
-export function fixtureYoutubeBody(videoId: string, vodUrl?: string): unknown {
+export function fixtureYoutubeBody(videoId: string, vodUrl?: string): Json {
   if (videoId === FIXTURE_VIDEO_ID) {
-    if (requestsOutsideFixture(vodUrl)) return youtubeLateStart;
-    return youtubeLive;
+    if (requestsOutsideFixture(vodUrl)) return recordedJson(youtubeLateStart);
+
+    return recordedJson(youtubeLive);
   }
-  if (videoId === FIXTURE_NON_LIVE_VIDEO_ID) return youtubeNotLive;
-  const body = structuredClone(youtubeNotLive) as { items?: { id?: string }[] };
-  const item = body.items?.[0];
-  if (item) item.id = videoId;
+
+  if (videoId === FIXTURE_NON_LIVE_VIDEO_ID) return recordedJson(youtubeNotLive);
+
+  const body = recordedJson(structuredClone(youtubeNotLive));
+
+  if (isJsonObject(body) && isJsonArray(body.items)) {
+    const item = body.items[0];
+
+    if (isJsonObject(item)) item.id = videoId;
+  }
+
   return body;
+}
+
+function recordedJson<T>(document: T): Json {
+  // SAFETY: fixture files are recorded JSON documents, not typed domain objects.
+  return document as Json;
 }
 
 function requestsOutsideFixture(vodUrl: string | undefined): boolean {
   if (!vodUrl) return false;
+
   try {
     return new URL(vodUrl).searchParams.get("fixture") === OUTSIDE_FIXTURE;
   } catch {
