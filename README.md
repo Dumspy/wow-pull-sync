@@ -34,14 +34,14 @@ Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at
 
 Do not set `USE_FIXTURES` in production.
 
-A pull request to `development` runs `npm ci`, `npm test`, and `npm run build`. A push to `development` runs those checks and then deploys the Worker. There is no `workers.dev` URL. The app is served at https://ps.rger.dev, which is attached in the infra repo, behind Cloudflare Access.
+Pull requests to `development` run `npm ci`, `npm test`, and `npm run build` in GitHub Actions. Pushes to `development` are not built again there. Cloudflare Workers Builds deploys the Worker from that branch. There is no `workers.dev` URL. The app is served at https://ps.rger.dev, which is attached in the infra repo, behind Cloudflare Access.
 
-The Worker has to exist before that hostname is applied. One-time setup:
+The Worker has to exist before that hostname is applied. One-time setup in the Cloudflare dashboard:
 
-1. Create a Cloudflare API token from the Edit Cloudflare Workers template, limited to Felix's account, and trimmed to Account > Workers Scripts: Edit, Account > Account Settings: Read, User > User Details: Read, and User > Memberships: Read. Keep the token in 1Password.
-2. Copy it into the GitHub Actions secret `CLOUDFLARE_API_TOKEN`, and set `CLOUDFLARE_ACCOUNT_ID` to the same account. Both are repository secrets.
-3. Merge to `development`. That push creates or updates the `pull-sync` Worker.
-4. Put the three Worker secrets once, from this directory:
+1. Workers & Pages → Create application → GitHub. Grant the Cloudflare GitHub app access to `Dumspy/wow-pull-sync`, and import that repository. Name the Worker `pull-sync`. Production branch: `development`.
+2. Build command `npm run build`. Deploy command `npx wrangler deploy`. Root directory: the repository root. Leave the Node version unset (the build image default is Node 24, which this lockfile accepts).
+3. Settings → Build → Branch control: turn preview builds off.
+4. Put the three Worker secrets once. Worker → Settings → Variables and Secrets, type Secret, or from this directory:
 
 ```sh
 npx wrangler secret put WCL_CLIENT_ID
@@ -49,9 +49,9 @@ npx wrangler secret put WCL_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
 ```
 
-5. Apply the infra change for `ps.rger.dev` and Access.
+5. Apply Homelab's OpenTofu PR 27 for `ps.rger.dev` and Access.
 
-Later deploys leave those Worker secrets in place. `npm run deploy` is still `vite build` and then `wrangler deploy`, for a manual deploy of the same config. The browser only talks to `/api/pulls`.
+A deploy without those secrets still succeeds. `/api/pulls` returns 500 until they are set. Later deploys leave them in place. `npm run deploy` is still `vite build` and then `wrangler deploy`, for a manual deploy of the same config. The browser only talks to `/api/pulls`.
 
 ## How a pull lines up with the VOD
 

@@ -4,16 +4,13 @@ on:
   pull_request:
     branches:
       - development
-  push:
-    branches:
-      - development
 
 permissions:
   contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -33,41 +30,3 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-
-  deploy:
-    name: Deploy
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/development'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Check Cloudflare credentials
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::error::CLOUDFLARE_API_TOKEN is not set. Add it as a repository Actions secret. The value is not printed."
-            exit 1
-          fi
-          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set. Add it as a repository Actions secret. The value is not printed."
-            exit 1
-          fi
-      - name: Deploy
-        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3.15.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          packageManager: npm
-          wranglerVersion: "4.156.0"
