@@ -30,18 +30,28 @@ With `USE_FIXTURES=true`, these two links load recorded API responses from the s
 
 Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32. To see a pull marked "not in VOD", add `?fixture=outside` to the VOD URL. That serves the same video with `actualStartTime` shifted 30 minutes later, so the first pulls fall before the stream. A normal upload such as `https://www.youtube.com/watch?v=dQw4w9WgXcQ` returns the recorded response that has no `liveStreamingDetails`.
 
-## Deploy later
+## Deploy
 
 Do not set `USE_FIXTURES` in production.
+
+A pull request to `development` runs `npm ci`, `npm test`, and `npm run build`. A push to `development` runs those checks and then deploys the Worker. There is no `workers.dev` URL. The app is served at https://ps.rger.dev, which is attached in the infra repo, behind Cloudflare Access.
+
+The Worker has to exist before that hostname is applied. One-time setup:
+
+1. Create a Cloudflare API token from the Edit Cloudflare Workers template, limited to Felix's account, and trimmed to Account > Workers Scripts: Edit, Account > Account Settings: Read, User > User Details: Read, and User > Memberships: Read. Keep the token in 1Password.
+2. Copy it into the GitHub Actions secret `CLOUDFLARE_API_TOKEN`, and set `CLOUDFLARE_ACCOUNT_ID` to the same account. Both are repository secrets.
+3. Merge to `development`. That push creates or updates the `pull-sync` Worker.
+4. Put the three Worker secrets once, from this directory:
 
 ```sh
 npx wrangler secret put WCL_CLIENT_ID
 npx wrangler secret put WCL_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
-npm run deploy
 ```
 
-`npm run deploy` is `vite build` and then `wrangler deploy`. Secrets stay on the Worker. The browser only talks to `/api/pulls`.
+5. Apply the infra change for `ps.rger.dev` and Access.
+
+Later deploys leave those Worker secrets in place. `npm run deploy` is still `vite build` and then `wrangler deploy`, for a manual deploy of the same config. The browser only talks to `/api/pulls`.
 
 ## How a pull lines up with the VOD
 
