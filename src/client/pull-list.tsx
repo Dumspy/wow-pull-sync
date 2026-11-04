@@ -109,7 +109,10 @@ export function PullList({
                       <span className="flex items-center gap-2 text-[11px]">
                         <span className="h-1 min-w-0 flex-1 bg-foreground/10">
                           <span
-                            className={cn("block h-full", pull.kill ? "bg-primary" : "bg-foreground/40")}
+                            className={cn(
+                              "block h-full",
+                              pull.kill ? "bg-primary" : "bg-foreground/40",
+                            )}
                             style={{ width: `${damageDone(pull)}%` }}
                           />
                         </span>

@@ -64,7 +64,9 @@ describe("recorded raid night", () => {
   it("matches the expected boss pulls and drops trash, including same-name trash", () => {
     const pulls = buildPulls(report, vod, 0);
     expect(pulls).toHaveLength(22);
-    expect(report.fights.some((fight) => fight.encounterID === 0 && fight.kill === null)).toBe(true);
+    expect(report.fights.some((fight) => fight.encounterID === 0 && fight.kill === null)).toBe(
+      true,
+    );
     expect(pulls.filter((pull) => pull.bossName === "Nymrissa Wavecaller")).toHaveLength(1);
 
     pulls.forEach((pull, index) => {
@@ -116,7 +118,9 @@ describe("pulls outside the VOD", () => {
 
 describe("youtube errors", () => {
   it("rejects the recorded non-live video", () => {
-    expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(HttpError);
+    expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(
+      HttpError,
+    );
 
     try {
       readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID));

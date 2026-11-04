@@ -2,11 +2,7 @@ import { matchPullToVod } from "./match";
 import type { Pull, ReportSummary, VodSummary } from "./types";
 
 /** Boss pulls only (`encounterID > 0`). Pull numbers restart for each boss. */
-export function buildPulls(
-  report: ReportSummary,
-  vod: VodSummary,
-  offsetSeconds: number,
-): Pull[] {
+export function buildPulls(report: ReportSummary, vod: VodSummary, offsetSeconds: number): Pull[] {
   const bosses = report.fights
     .filter((fight) => fight.encounterID > 0)
     .slice()

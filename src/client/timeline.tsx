@@ -207,7 +207,9 @@ function PullTrack({
   onSeek: (seconds: number) => void;
 }) {
   if (!pull) {
-    return <p className="py-4 text-xs text-muted-foreground">Select a pull to zoom the timeline.</p>;
+    return (
+      <p className="py-4 text-xs text-muted-foreground">Select a pull to zoom the timeline.</p>
+    );
   }
 
   const start = pullToVideoSeconds(pull, source);

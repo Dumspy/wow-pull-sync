@@ -109,7 +109,9 @@ export function App() {
 
   function applyOffset(next: number) {
     setSources((current) =>
-      current.map((source) => (source.id === activeSourceId ? { ...source, offset: next } : source)),
+      current.map((source) =>
+        source.id === activeSourceId ? { ...source, offset: next } : source,
+      ),
     );
   }
 
@@ -299,7 +301,9 @@ export function App() {
           >
             Prev
           </Button>
-          <p className="max-w-56 truncate text-xs">{activePull ? pullSummary(activePull) : "No pull"}</p>
+          <p className="max-w-56 truncate text-xs">
+            {activePull ? pullSummary(activePull) : "No pull"}
+          </p>
           <Button
             type="button"
             size="sm"
@@ -344,7 +348,12 @@ export function App() {
             Sources
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <PullList pulls={session.pulls} source={active} activeId={activeId} onSelect={selectPull} />
+            <PullList
+              pulls={session.pulls}
+              source={active}
+              activeId={activeId}
+              onSelect={selectPull}
+            />
           </div>
         </aside>
         <div className="relative min-w-0 flex-1 bg-black">
