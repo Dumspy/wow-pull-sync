@@ -1,10 +1,18 @@
 # Pull sync
 
-After a raid, paste a Warcraft Logs report and the YouTube VOD from that night. The page embeds the VOD and lists every boss pull. Click a pull and the player seeks to when that pull started.
+Paste a Warcraft Logs report and the YouTube VOD from that night. The page embeds the VOD and lists every boss pull. Click a pull and the player seeks to when it started.
 
-Trash fights are left out. A pull that falls outside the VOD is marked "not in VOD". An optional offset, in seconds, shifts every timestamp (stream delay or a trimmed VOD).
+A pull's place in the video is wall-clock time. Warcraft Logs gives the report start and each fight's offset from that start. YouTube's `liveStreamingDetails.actualStartTime` is second 0 of a finished live stream. The seek time is those two instants compared, plus an optional offset in seconds (stream delay, or a VOD that was trimmed). Trash fights are left out. A pull that falls outside the VOD is marked "not in VOD".
 
-## Run locally
+```
+vodSeconds = (reportStart + fight.startTime - actualStartTime) / 1000 + offset
+```
+
+Boss pulls are fights with `encounterID > 0`.
+
+## Local development
+
+You need Node.js 22.12 or newer and npm. Wrangler 4 requires Node 22 or newer, and Vite 7 requires 22.12 or newer on that line.
 
 ```sh
 npm install
@@ -13,42 +21,53 @@ cp .dev.vars.example .dev.vars
 
 Fill in `.dev.vars`:
 
-- `WCL_CLIENT_ID` and `WCL_CLIENT_SECRET` — a Warcraft Logs OAuth client (client credentials). Public reports only.
-- `YOUTUBE_API_KEY` — a YouTube Data API v3 key.
-- `USE_FIXTURES` — set to `true` only when you want the recorded responses in `fixtures/` instead of the APIs. Leave it empty when the keys are set. Real requests are the default.
+- `WCL_CLIENT_ID` and `WCL_CLIENT_SECRET` — a Warcraft Logs OAuth client. Create one on the [API clients page](https://www.warcraftlogs.com/api/clients/). The app uses the client-credentials flow, so it can read public reports only.
+- `YOUTUBE_API_KEY` — a YouTube Data API v3 key. Enable the API and create a key in the [Google Cloud console](https://console.cloud.google.com/apis/credentials), as described in the [YouTube Data API overview](https://developers.google.com/youtube/v3/getting-started).
+- `USE_FIXTURES` — set to `true` to serve the recorded responses in `fixtures/` instead of calling those APIs. Leave it empty for real requests.
 
-```sh
-npm run dev
-```
+Do not set `USE_FIXTURES` in production.
 
-That starts the Worker and the page together (Vite, running on the Workers runtime). `npm test` runs the timestamp unit tests. `npx wrangler dev` serves the same Worker. Run it from this directory after `npm run dev` or `npm run build`, which writes the generated Wrangler config the dev command follows.
+Scripts, as defined in `package.json`:
 
-With `USE_FIXTURES=true`, these two links load recorded API responses from the same night:
+| Script | Command |
+| --- | --- |
+| `npm run dev` | `vite` |
+| `npm run build` | `vite build` |
+| `npm run preview` | `vite preview` |
+| `npm test` | `vitest run` |
+| `npm run deploy` | `npm run build && wrangler deploy` |
+
+`npm run dev` runs the Worker and the page together on the Workers runtime. `npm test` is the timestamp unit tests.
+
+With `USE_FIXTURES=true`, these two links load the recorded night. Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32.
 
 - https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9
 - https://youtube.com/live/BLJBhzLNt8w
 
-Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32. To see a pull marked "not in VOD", add `?fixture=outside` to the VOD URL. That serves the same video with `actualStartTime` shifted 30 minutes later, so the first pulls fall before the stream. A normal upload such as `https://www.youtube.com/watch?v=dQw4w9WgXcQ` returns the recorded response that has no `liveStreamingDetails`.
+Add `?fixture=outside` to the VOD URL to serve the same video with `actualStartTime` shifted 30 minutes later, so the early pulls fall before the stream. A normal upload such as `https://www.youtube.com/watch?v=dQw4w9WgXcQ` returns the recorded response that has no `liveStreamingDetails`. While `npm run dev` is running, `?player=fake` on the page uses a stand-in player instead of the YouTube iframe.
 
-## Deploy later
+## Deploy
 
-Do not set `USE_FIXTURES` in production.
+Deploy from this directory with `npm run deploy`, or with `npx wrangler deploy` after `npm run build`.
+
+Cloudflare's Git integration (Workers Builds) can deploy on push instead. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. The Worker name in Cloudflare has to match `name` in `wrangler.jsonc`. For other branches, turn preview builds on and leave the preview command as `npx wrangler preview`. That command keeps one URL per branch (`<branch>-pull-sync.<account-subdomain>.workers.dev`) and Cloudflare posts it on the pull request. `npx wrangler versions upload` instead uploads a version and, with `preview_urls` on, returns a new Version URL each time (`<version>-pull-sync.<account-subdomain>.workers.dev`). It does not post that Preview URL comment.
+
+Set the three runtime secrets once. Later deploys keep them.
 
 ```sh
 npx wrangler secret put WCL_CLIENT_ID
 npx wrangler secret put WCL_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
-npm run deploy
 ```
 
-`npm run deploy` is `vite build` and then `wrangler deploy`. Secrets stay on the Worker. The browser only talks to `/api/pulls`.
+A branch Preview does not inherit those secrets. Set the same three on the Previews base (`npx wrangler preview base-config secret put <NAME>`) or the preview page cannot call the APIs.
 
-## How a pull lines up with the VOD
+`workers_dev` is off and `preview_urls` is on. The Worker has no production `workers.dev` URL. Version URLs and branch Preview URLs still work, on the account's `workers.dev` subdomain, not on the Worker's own route. Attach a custom domain or a route outside `wrangler.jsonc`.
 
-Warcraft Logs gives the report `startTime` as epoch milliseconds, and each fight `startTime` as milliseconds from the start of the report. YouTube `liveStreamingDetails.actualStartTime` is when the finished stream actually started, which is second 0 of the VOD. `contentDetails.duration` is the VOD length and the end bound. On this VOD that duration is 2:38:15, three seconds shorter than `actualEndTime` minus `actualStartTime`.
+Those preview hostnames are public. An Access application on the custom domain does not cover them. Turn on Cloudflare Access for preview deployments before the first preview build. A check of `Cf-Access-Jwt-Assertion` inside the Worker only runs if Access is already in front of that hostname. Without that, the header is absent and the check rejects every request.
 
-```
-vodSeconds = (reportStart + fight.startTime - actualStartTime) / 1000 + offset
-```
+Pull requests run `npm ci`, `npm test`, and `npm run build`.
 
-Boss pulls are fights with `encounterID > 0`.
+## License
+
+Elastic License 2.0 (ELv2). See [LICENSE](LICENSE). Third-party code copied into this repo keeps its own license file.

@@ -3,8 +3,17 @@
   "name": "pull-sync",
   "main": "./src/worker.ts",
   "compatibility_date": "2026-10-01",
+  // The production workers.dev route stays off. Attach the custom domain
+  // outside this file, and leave `routes` out so a deploy does not replace it.
+  // preview_urls turns on Version URLs and workers.dev Preview URLs. Those
+  // use the account workers.dev subdomain. They stay up when this route is off.
+  "workers_dev": false,
+  "preview_urls": true,
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  // `wrangler preview` requires this block. Assets and compatibility_date
+  // stay at the top level, so the block can be empty.
+  "previews": {}
 }
