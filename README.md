@@ -67,3 +67,7 @@ A branch Preview does not inherit those secrets. Set the same three on the Previ
 Those preview hostnames are public. An Access application on the custom domain does not cover them. Turn on Cloudflare Access for preview deployments before the first preview build. A check of `Cf-Access-Jwt-Assertion` inside the Worker only runs if Access is already in front of that hostname. Without that, the header is absent and the check rejects every request.
 
 Pull requests run `npm ci`, `npm test`, and `npm run build`.
+
+## License
+
+Elastic License 2.0 (ELv2). See [LICENSE](LICENSE). Third-party code copied into this repo keeps its own license file.
