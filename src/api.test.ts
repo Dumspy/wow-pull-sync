@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import wranglerConfig from "../wrangler.jsonc?raw";
+
 import { api } from "./api";
 import { pullSyncResponseSchema } from "./contract";
 import app from "./worker";
@@ -82,6 +84,49 @@ describe("POST /api/pulls", () => {
     expect(await other.text()).toBe("page");
     expect(wrongMethod.status).toBe(404);
     expect(mountedPost.status).toBe(400);
+  });
+
+  it("serves a raid URL from assets and keeps a non-POST /api/pulls off the HTML page", async () => {
+    const env = {
+      ASSETS: {
+        fetch: async (input: Request | URL | string) => {
+          const url = input instanceof Request ? input.url : String(input);
+          const path = new URL(url).pathname;
+
+          if (path.startsWith("/raid/")) {
+            return new Response('<!doctype html><div id="root"></div>', {
+              headers: { "content-type": "text/html; charset=utf-8" },
+            });
+          }
+
+          return new Response("page", { headers: { "content-type": "text/html" } });
+        },
+      },
+    };
+
+    const raid = await app.request(
+      "http://localhost/raid/TPYJD2c4VkLZfBp9?vod=BLJBhzLNt8w&pull=12",
+      {},
+      env,
+    );
+
+    const wrongMethod = await app.request("http://localhost/api/pulls", { method: "GET" }, env);
+    const wrongText = await wrongMethod.text();
+
+    expect(raid.status).toBe(200);
+    expect(raid.headers.get("content-type")).toContain("text/html");
+    expect(await raid.text()).toContain('id="root"');
+    expect(wrongMethod.status).toBe(404);
+    expect(wrongMethod.headers.get("content-type") ?? "").not.toContain("text/html");
+    expect(wrongText).not.toContain("root");
+    expect(wrongText).not.toContain("<!doctype");
+  });
+
+  it("keeps Workers Assets on the single-page app for paths other than /api", () => {
+    const config = wranglerConfig;
+
+    expect(config).toContain('"not_found_handling": "single-page-application"');
+    expect(config).toContain('"/api/*"');
   });
 
   it("keeps the encounter id on the pulls response", async () => {

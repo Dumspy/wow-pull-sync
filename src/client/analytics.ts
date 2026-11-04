@@ -1,6 +1,8 @@
 import type { PostHog, PostHogConfig } from "posthog-js/dist/module.slim.no-external";
 
-/** Named product events. `$pageview` is sent by PostHog on init, not via `track`. */
+import { scrubAnalyticsCapture } from "./analytics-scrub";
+
+/** Named product events. `$pageview` is sent from router navigation, not via `track`. */
 export type AnalyticsEvent = "raid loaded" | "pull clicked" | "VOD played";
 
 export interface RaidLoadedProperties {
@@ -19,10 +21,24 @@ type ErrorTrackingExtensions = Pick<
   "exceptionObserver" | "exceptions"
 >;
 
+/** A previous location is present once the router has resolved at least one navigation. */
+export interface ResolvedNavigation {
+  pathname: string;
+}
+
+/** First load, and any later navigation that changes the path. Search-only updates are not pageviews. */
+export function onResolvedPageview(
+  pathChanged: boolean,
+  fromLocation: ResolvedNavigation | undefined,
+): boolean {
+  return pathChanged || fromLocation == null;
+}
+
 /**
  * Init options shared by the app and the cookieless / exception checks.
  * `capture_exceptions` stays off so unhandled errors are not autocaptured.
  * The error-tracking extensions are what make `captureException` emit `$exception`.
+ * Pageviews are sent from the router, so automatic capture stays off.
  */
 export function analyticsInitOptions(
   errorTracking: ErrorTrackingExtensions,
@@ -39,8 +55,9 @@ export function analyticsInitOptions(
     person_profiles: "identified_only",
     save_campaign_params: false,
     disable_compression: true,
-    capture_pageview: true,
+    capture_pageview: false,
     capture_pageleave: false,
+    before_send: scrubAnalyticsCapture,
     autocapture: false,
     rageclick: false,
     capture_dead_clicks: false,
@@ -114,11 +131,25 @@ export function track(
   event: AnalyticsEvent,
   properties?: RaidLoadedProperties | PullClickedProperties,
 ): void {
-  if (!projectKey()) return;
-
-  const send = () => {
+  enqueue(() => {
     client?.capture(event, properties);
-  };
+  });
+}
+
+export function capturePageview(): void {
+  enqueue(() => {
+    client?.capture("$pageview");
+  });
+}
+
+export function captureQueryError(error: Error, properties: { query: string }): void {
+  enqueue(() => {
+    client?.captureException(error, properties);
+  });
+}
+
+function enqueue(send: () => void): void {
+  if (!projectKey()) return;
 
   if (client) send();
   else if (starting) pending.push(send);
