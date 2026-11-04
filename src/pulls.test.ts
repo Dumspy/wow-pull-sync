@@ -117,6 +117,57 @@ describe("pulls outside the VOD", () => {
   });
 });
 
+describe("external response errors", () => {
+  it("returns the Warcraft Logs error message", () => {
+    expect(() => readReport({ errors: [{ message: "no such report" }] })).toThrow("no such report");
+  });
+
+  it("treats a missing report as not found and a bad report as a bad gateway", () => {
+    expect(() => readReport({ data: { reportData: { report: null } } })).toThrow(
+      "No Warcraft Logs report found for that link.",
+    );
+
+    try {
+      readReport({ data: { reportData: { report: {} } } });
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpError);
+
+      if (!(error instanceof HttpError)) return;
+
+      expect(error.status).toBe(502);
+      expect(error.message).toBe("Warcraft Logs returned an unexpected response.");
+    }
+  });
+
+  it("rejects an empty YouTube list, a video with no length, and a bad start time", () => {
+    expect(() => readYoutubeVideo({ items: [] })).toThrow("No YouTube video found for that link.");
+
+    expect(() =>
+      readYoutubeVideo({
+        items: [
+          {
+            liveStreamingDetails: {
+              actualStartTime: "2020-01-01T00:00:00Z",
+              actualEndTime: "2020-01-01T01:00:00Z",
+            },
+          },
+        ],
+      }),
+    ).toThrow("YouTube did not return a video length.");
+
+    expect(() =>
+      readYoutubeVideo({
+        items: [
+          {
+            liveStreamingDetails: { actualStartTime: "not-a-date", actualEndTime: "also" },
+            contentDetails: { duration: "PT1S" },
+          },
+        ],
+      }),
+    ).toThrow("YouTube returned an unexpected start time.");
+  });
+});
+
 describe("youtube errors", () => {
   it("rejects the recorded non-live video", () => {
     expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(

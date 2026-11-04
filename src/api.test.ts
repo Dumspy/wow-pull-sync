@@ -12,11 +12,10 @@ function post(body: string) {
 }
 
 describe("POST /api/pulls", () => {
-  it("rejects other methods", async () => {
+  it("returns Hono's default 404 for a method other than POST", async () => {
     const response = await api.request("/pulls", { method: "GET" });
 
-    expect(response.status).toBe(405);
-    expect(await response.json()).toEqual({ error: "Use POST." });
+    expect(response.status).toBe(404);
   });
 
   it("rejects a body that is not JSON", async () => {
@@ -64,11 +63,24 @@ describe("POST /api/pulls", () => {
 
     const page = await app.request("http://localhost/", {}, env);
     const other = await app.request("http://localhost/api/other", {}, env);
+    const wrongMethod = await app.request("http://localhost/api/pulls", { method: "GET" }, env);
+
+    const mountedPost = await app.request(
+      "http://localhost/api/pulls",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      },
+      env,
+    );
 
     expect(page.status).toBe(200);
     expect(await page.text()).toBe("page");
     expect(other.status).toBe(200);
     expect(await other.text()).toBe("page");
+    expect(wrongMethod.status).toBe(404);
+    expect(mountedPost.status).toBe(400);
   });
 
   it("treats a missing offset as zero and then checks the report URL", async () => {
