@@ -1,4 +1,4 @@
-import type { PostHog } from "posthog-js";
+import type { PostHog, PostHogConfig } from "posthog-js/dist/module.slim.no-external";
 
 /** Named product events. `$pageview` is sent by PostHog on init, not via `track`. */
 export type AnalyticsEvent = "raid loaded" | "pull clicked" | "VOD played";
@@ -12,7 +12,57 @@ export interface PullClickedProperties {
   kill: boolean;
 }
 
-type Client = Pick<PostHog, "capture">;
+type Client = Pick<PostHog, "capture" | "captureException">;
+
+type ErrorTrackingExtensions = Pick<
+  typeof import("posthog-js/dist/extension-bundles").ErrorTrackingExtensions,
+  "exceptionObserver" | "exceptions"
+>;
+
+/**
+ * Init options shared by the app and the cookieless / exception checks.
+ * `capture_exceptions` stays off so unhandled errors are not autocaptured.
+ * The error-tracking extensions are what make `captureException` emit `$exception`.
+ */
+export function analyticsInitOptions(
+  errorTracking: ErrorTrackingExtensions,
+): Partial<PostHogConfig> {
+  const options: Partial<PostHogConfig> = {
+    api_host: "https://eu.i.posthog.com",
+    // No cookies and no web storage. Identity is a server-side hash.
+    // The PostHog project must have cookieless mode enabled or these events are dropped.
+    // https://posthog.com/docs/libraries/js/persistence
+    cookieless_mode: "always",
+    cross_subdomain_cookie: false,
+    debug: false,
+    ip: false,
+    person_profiles: "identified_only",
+    save_campaign_params: false,
+    disable_compression: true,
+    capture_pageview: true,
+    capture_pageleave: false,
+    autocapture: false,
+    rageclick: false,
+    capture_dead_clicks: false,
+    capture_exceptions: false,
+    capture_heatmaps: false,
+    capture_performance: false,
+    disable_scroll_properties: true,
+    disable_session_recording: true,
+    disable_surveys: true,
+    disable_product_tours: true,
+    disable_conversations: true,
+    disable_external_dependency_loading: true,
+    advanced_disable_flags: true,
+    advanced_disable_feature_flags: true,
+    __extensionClasses: {
+      exceptionObserver: errorTracking.exceptionObserver,
+      exceptions: errorTracking.exceptions,
+    },
+  };
+
+  return options;
+}
 
 let client: Client | null = null;
 let starting = false;
@@ -38,38 +88,15 @@ export function initAnalytics(): void {
   if (!key || starting || client) return;
   starting = true;
   // Slim build has no session-replay, survey, or product-tour code.
-  void import("posthog-js/dist/module.slim.no-external")
-    .then(({ default: posthog }) => {
+  // Error tracking is registered from the extension bundle, which the slim entry omits.
+  void Promise.all([
+    import("posthog-js/dist/module.slim.no-external"),
+    import("posthog-js/dist/extension-bundles"),
+  ])
+    .then(([posthogModule, extensionModule]) => {
       if (!projectKey()) return;
-      posthog.init(key, {
-        api_host: "https://eu.i.posthog.com",
-        // Page memory only. With this mode, posthog-js keeps the session id on
-        // the same store instead of sessionStorage, and it does not write cookies
-        // or localStorage. https://posthog.com/docs/libraries/js/persistence
-        persistence: "memory",
-        cross_subdomain_cookie: false,
-        debug: false,
-        ip: false,
-        person_profiles: "identified_only",
-        save_campaign_params: false,
-        disable_compression: true,
-        capture_pageview: true,
-        capture_pageleave: false,
-        autocapture: false,
-        rageclick: false,
-        capture_dead_clicks: false,
-        capture_exceptions: false,
-        capture_heatmaps: false,
-        capture_performance: false,
-        disable_scroll_properties: true,
-        disable_session_recording: true,
-        disable_surveys: true,
-        disable_product_tours: true,
-        disable_conversations: true,
-        disable_external_dependency_loading: true,
-        advanced_disable_flags: true,
-        advanced_disable_feature_flags: true,
-      });
+      const posthog = posthogModule.default;
+      posthog.init(key, analyticsInitOptions(extensionModule.ErrorTrackingExtensions));
       client = posthog;
 
       for (const send of pending.splice(0)) send();
