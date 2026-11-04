@@ -1,9 +1,10 @@
+import { hc } from "hono/client";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
-import { isBoolean, isJsonArray, isJsonObject, isNumber, isString, type Json } from "../json";
+import type { AppType } from "../api";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, PullSyncResponse } from "../types";
+import type { Pull } from "../types";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -21,39 +22,9 @@ interface RaidSession {
   pulls: Pull[];
 }
 
-function isPull(value: Json | Pull): value is Pull {
-  if (!isJsonObject(value)) return false;
-
-  return (
-    isNumber(value.fightId) &&
-    isString(value.bossName) &&
-    isBoolean(value.kill) &&
-    isNumber(value.pullNumber) &&
-    isNumber(value.durationMs) &&
-    (value.bossPercentage === null || isNumber(value.bossPercentage)) &&
-    isNumber(value.startedAt) &&
-    isNumber(value.endedAt) &&
-    isNumber(value.vodSeconds) &&
-    isBoolean(value.inVod)
-  );
-}
-
-function isPullSyncResponse(value: Json | PullSyncResponse): value is PullSyncResponse {
-  if (!isJsonObject(value) || !isJsonArray(value.pulls)) return false;
-
-  return (
-    isString(value.videoId) &&
-    isString(value.videoTitle) &&
-    isString(value.reportCode) &&
-    isString(value.reportTitle) &&
-    isNumber(value.vodStartedAtMs) &&
-    isNumber(value.vodDurationSeconds) &&
-    value.pulls.every(isPull)
-  );
-}
-
 const REPORT = "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9";
 const VOD = "https://youtube.com/live/BLJBhzLNt8w";
+const client = hc<AppType>("/api");
 
 function reportHref(code: string, fightId: number | null): string {
   const base = `https://www.warcraftlogs.com/reports/${encodeURIComponent(code)}`;
@@ -149,42 +120,34 @@ export function App() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/pulls", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reportUrl, vodUrl, offsetSeconds: 0 }),
+      const response = await client.pulls.$post({
+        json: { reportUrl, vodUrl, offsetSeconds: 0 },
       });
 
-      const payload: Json = await response.json();
-
       if (!response.ok) {
-        const error = isJsonObject(payload) ? payload.error : undefined;
+        const error = await response.json();
 
-        setError(isString(error) && error ? error : "Something went wrong loading that raid.");
-
-        return;
-      }
-
-      if (!isPullSyncResponse(payload)) {
-        setError("The app returned an unexpected response.");
+        setError(error.error || "Something went wrong loading that raid.");
 
         return;
       }
+
+      const body = await response.json();
 
       const source: VideoSource = {
         kind: "youtube",
-        id: payload.videoId,
-        startedAt: payload.vodStartedAtMs,
-        duration: payload.vodDurationSeconds,
+        id: body.videoId,
+        startedAt: body.vodStartedAtMs,
+        duration: body.vodDurationSeconds,
         offset: offsetSeconds,
       };
 
-      const pulls = payload.pulls;
+      const pulls = body.pulls;
       const first = pulls.find((pull) => pullInSource(pull, source)) ?? pulls[0] ?? null;
       setSession({
-        reportCode: payload.reportCode,
-        reportTitle: payload.reportTitle,
-        videoTitle: payload.videoTitle,
+        reportCode: body.reportCode,
+        reportTitle: body.reportTitle,
+        videoTitle: body.videoTitle,
         pulls,
       });
       setSources([source]);

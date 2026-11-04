@@ -1,6 +1,6 @@
 import { fixtureYoutubeBody } from "./fixtures";
 import { HttpError } from "./http-error";
-import type { Json } from "./json";
+import { jsonBody, type Json } from "./json";
 
 export async function fetchYoutubeBody(
   videoId: string,
@@ -19,5 +19,5 @@ export async function fetchYoutubeBody(
     throw new HttpError(502, "YouTube could not be reached.");
   }
 
-  return response.json();
+  return jsonBody.parse(await response.json());
 }

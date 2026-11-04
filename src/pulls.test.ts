@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { formatClock } from "./client/format";
 import {
   FIXTURE_NON_LIVE_VIDEO_ID,
@@ -131,5 +132,13 @@ describe("youtube errors", () => {
 
       expect(error.message).toBe("That video is not a past live stream.");
     }
+  });
+
+  it("keeps an unknown fixture video on the non-live body and uses the requested id", () => {
+    const body = fixtureYoutubeBody("abcdefghijk");
+    const parsed = z.object({ items: z.array(z.object({ id: z.string() })) }).parse(body);
+
+    expect(parsed.items[0]?.id).toBe("abcdefghijk");
+    expect(() => readYoutubeVideo(body)).toThrow("That video is not a past live stream.");
   });
 });

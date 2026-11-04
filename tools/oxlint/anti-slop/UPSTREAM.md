@@ -10,4 +10,4 @@ Oxlint and `@oxlint/plugins` are both pinned at 1.91.0, the current npm release 
 
 The Effect plugin is present in the copy and not registered. This repository does not depend on Effect.
 
-`anti-slop/no-runtime-typeof` is enabled with `allowInTypeGuards`. The app has no schema library, so the JSON readers in `src/json.ts` are the boundary parser. Ad hoc `typeof` checks outside a type predicate stay rejected.
+`anti-slop/no-runtime-typeof` stays at its default of `"error"`. JSON boundaries go through Zod, so this repository does not need a `typeof` allowlist.

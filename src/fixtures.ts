@@ -1,8 +1,10 @@
+import { z } from "zod";
+
 import wclReport from "../fixtures/wcl-TPYJD2c4VkLZfBp9.json";
 import youtubeLive from "../fixtures/yt-BLJBhzLNt8w.json";
 import youtubeLateStart from "../fixtures/yt-BLJBhzLNt8w-late-start.json";
 import youtubeNotLive from "../fixtures/yt-nonlive.json";
-import { isJsonArray, isJsonObject, type Json } from "./json";
+import { jsonBody, type Json } from "./json";
 
 /** Recorded responses for the 29 Oct 2026 Average Pillagers report and VOD. */
 export const FIXTURE_REPORT_CODE = "TPYJD2c4VkLZfBp9";
@@ -35,13 +37,17 @@ export function fixtureYoutubeBody(videoId: string, vodUrl?: string): Json {
 
   const body = recordedJson(structuredClone(youtubeNotLive));
 
-  if (isJsonObject(body) && isJsonArray(body.items)) {
-    const item = body.items[0];
+  const parsed = z
+    .looseObject({
+      items: z.array(z.looseObject({ id: z.string() })).optional(),
+    })
+    .safeParse(body);
 
-    if (isJsonObject(item)) item.id = videoId;
-  }
+  const item = parsed.success ? parsed.data.items?.[0] : undefined;
 
-  return body;
+  if (item) item.id = videoId;
+
+  return parsed.success ? jsonBody.parse(parsed.data) : body;
 }
 
 function recordedJson<T>(document: T): Json {

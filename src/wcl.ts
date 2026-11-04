@@ -1,6 +1,8 @@
+import { z } from "zod";
+
 import { fixtureReportBody } from "./fixtures";
 import { HttpError } from "./http-error";
-import { isJsonObject, isNumber, isString, type Json } from "./json";
+import { jsonBody, type Json } from "./json";
 
 const TOKEN_URL = "https://www.warcraftlogs.com/oauth/token";
 const API_URL = "https://www.warcraftlogs.com/api/v2/client";
@@ -42,14 +44,21 @@ async function accessToken(clientId: string, clientSecret: string): Promise<stri
     body: "grant_type=client_credentials",
   });
 
-  const body: Json = await response.json().catch(() => null);
-  const token = isJsonObject(body) && isString(body.access_token) ? body.access_token : null;
+  const body = jsonBody.safeParse(await response.json().catch(() => null));
+  const tokenBody = body.success ? z.record(z.string(), jsonBody).safeParse(body.data) : undefined;
 
-  if (!response.ok || !token) {
+  const token = tokenBody?.success
+    ? z.string().safeParse(tokenBody.data.access_token).data
+    : undefined;
+
+  if (!response.ok || token === undefined) {
     throw new HttpError(502, "Warcraft Logs refused the API login.");
   }
 
-  const expiresIn = isJsonObject(body) && isNumber(body.expires_in) ? body.expires_in : 3600;
+  const expiresIn = tokenBody?.success
+    ? (z.number().safeParse(tokenBody.data.expires_in).data ?? 3600)
+    : 3600;
+
   cachedToken = { token, expiresAt: now + expiresIn * 1000 };
 
   return token;
@@ -77,5 +86,5 @@ export async function fetchReportBody(
     throw new HttpError(502, "Warcraft Logs could not be reached.");
   }
 
-  return response.json();
+  return jsonBody.parse(await response.json());
 }

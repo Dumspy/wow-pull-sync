@@ -1,105 +1,11 @@
-import { HttpError } from "./http-error";
-import { isJsonObject, isNumber, isString, type Json } from "./json";
-import { readReport, readYoutubeVideo } from "./parse-api";
-import { buildPulls } from "./pulls";
-import type { PullSyncResponse } from "./types";
-import { parseReportCode, parseVideoId } from "./urls";
-import { fetchReportBody } from "./wcl";
-import { fetchYoutubeBody } from "./youtube";
+import { Hono } from "hono";
 
-interface Env {
-  ASSETS: { fetch(input: Request | URL | string): Promise<Response> };
-  WCL_CLIENT_ID?: string;
-  WCL_CLIENT_SECRET?: string;
-  YOUTUBE_API_KEY?: string;
-  USE_FIXTURES?: string;
-}
+import { api, type Env } from "./api";
 
-function json(data: PullSyncResponse | { error: string }, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
+const app = new Hono<{ Bindings: Env }>();
 
-async function handlePulls(request: Request, env: Env): Promise<Response> {
-  if (request.method !== "POST") {
-    return json({ error: "Use POST." }, 405);
-  }
+app.route("/api", api);
 
-  let payload: Json;
+app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-  try {
-    payload = await request.json();
-  } catch {
-    return json({ error: "Send a JSON body." }, 400);
-  }
-
-  if (!isJsonObject(payload)) {
-    return json({ error: "Send a JSON body." }, 400);
-  }
-
-  if (!isString(payload.reportUrl) || !isString(payload.vodUrl)) {
-    return json({ error: "Enter a Warcraft Logs report URL and a YouTube VOD URL." }, 400);
-  }
-
-  const offsetSeconds = payload.offsetSeconds == null ? 0 : payload.offsetSeconds;
-
-  if (!isNumber(offsetSeconds) || !Number.isFinite(offsetSeconds)) {
-    return json({ error: "Offset must be a number of seconds." }, 400);
-  }
-
-  const code = parseReportCode(payload.reportUrl);
-
-  if (!code) {
-    return json({ error: "That doesn't look like a Warcraft Logs report URL." }, 400);
-  }
-
-  const videoId = parseVideoId(payload.vodUrl);
-
-  if (!videoId) {
-    return json({ error: "That doesn't look like a YouTube URL." }, 400);
-  }
-
-  const useFixtures = env.USE_FIXTURES === "true";
-
-  if (!useFixtures && (!env.WCL_CLIENT_ID || !env.WCL_CLIENT_SECRET || !env.YOUTUBE_API_KEY)) {
-    return json({ error: "WCL and YouTube API credentials are not configured." }, 500);
-  }
-
-  try {
-    const [reportBody, youtubeBody] = await Promise.all([
-      fetchReportBody(code, env.WCL_CLIENT_ID ?? "", env.WCL_CLIENT_SECRET ?? "", useFixtures),
-      fetchYoutubeBody(videoId, payload.vodUrl, env.YOUTUBE_API_KEY ?? "", useFixtures),
-    ]);
-
-    const report = readReport(reportBody);
-    const vod = readYoutubeVideo(youtubeBody);
-
-    const response: PullSyncResponse = {
-      videoId: vod.videoId || videoId,
-      videoTitle: vod.title,
-      reportCode: report.code || code,
-      reportTitle: report.title,
-      vodStartedAtMs: vod.actualStartMs,
-      vodDurationSeconds: vod.durationSeconds,
-      pulls: buildPulls(report, vod, offsetSeconds),
-    };
-
-    return json(response);
-  } catch (error) {
-    if (error instanceof HttpError) return json({ error: error.message }, error.status);
-
-    return json({ error: "Something went wrong loading that raid." }, 500);
-  }
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-
-    if (url.pathname === "/api/pulls") return handlePulls(request, env);
-
-    return env.ASSETS.fetch(request);
-  },
-};
+export default app;

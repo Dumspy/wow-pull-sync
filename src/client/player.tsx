@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-import { isNumber, type Json } from "../json";
+import type { Json } from "../json";
 import { formatClock, formatSeconds } from "./format";
 
 export interface PlayerController {
@@ -124,7 +124,8 @@ function YoutubePlayer({
 
         try {
           const value = player.getCurrentTime();
-          reported = isNumber(value) && Number.isFinite(value) ? value : 0;
+          // SAFETY: Number.isFinite accepts only finite numbers, which are JSON numbers.
+          reported = Number.isFinite(value) ? (value as number) : 0;
         } catch {
           reported = 0;
         }
