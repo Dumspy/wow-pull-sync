@@ -24,6 +24,8 @@ export interface VodSummary {
 
 export interface Pull {
   fightId: number;
+  /** Warcraft Logs encounter id (`encounterID`). 0 is trash and never a pull. */
+  encounterId: number;
   bossName: string;
   kill: boolean;
   pullNumber: number;

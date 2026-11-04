@@ -25,6 +25,7 @@ export function buildPulls(
     });
     return {
       fightId: fight.id,
+      encounterId: fight.encounterID,
       bossName: fight.name,
       kill: fight.kill === true,
       pullNumber,

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { track } from "./analytics";
 import { formatClock, formatSeconds } from "./format";
 
 export interface PlayerController {
@@ -81,9 +82,17 @@ function YoutubePlayer({
     let cancelled = false;
     let player: YtPlayer | null = null;
     let ready = false;
+    let playing = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
     const listeners = new Set<() => void>();
+
+    const noteState = (state: number) => {
+      const isPlaying = state === 1;
+      if (isPlaying && !playing) track("VOD played", {});
+      if (isPlaying) playing = true;
+      else if (state === -1 || state === 0 || state === 2 || state === 5) playing = false;
+    };
 
     const controller: PlayerController = {
       seekTo(seconds) {
@@ -145,6 +154,9 @@ function YoutubePlayer({
             }
             listeners.forEach((listener) => listener());
           },
+          onStateChange: (event: { data: number }) => {
+            noteState(event.data);
+          },
         },
       });
     });
@@ -181,10 +193,12 @@ function FakePlayer({
     const controller: PlayerController = {
       seekTo(seconds) {
         const length = durationRef.current;
+        const wasPlaying = clock.playing;
         clock.time = Math.min(Math.max(0, seconds), Math.max(length, 0));
         clock.playing = true;
         clock.last = performance.now();
         clock.seek = seconds;
+        if (!wasPlaying) track("VOD played", {});
       },
       getCurrentTime() {
         return clock.time;
@@ -242,6 +256,7 @@ function FakePlayer({
           const clock = clockRef.current;
           clock.playing = !clock.playing;
           clock.last = performance.now();
+          if (clock.playing) track("VOD played", {});
         }}
       >
         Play / Pause

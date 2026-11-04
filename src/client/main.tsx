@@ -1,8 +1,11 @@
 import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 
+import { initAnalytics } from "./analytics";
 import { App } from "./App";
 import "../styles.css";
+
+initAnalytics();
 
 /** Dark is the default, including on a light OS theme. */
 function Theme() {
