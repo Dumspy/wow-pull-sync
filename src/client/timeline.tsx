@@ -20,17 +20,23 @@ function usePlayhead(player: PlayerController | null): number {
     if (!player) return;
     let raf = 0;
     let last = Number.NaN;
+
     const tick = () => {
       const next = player.getCurrentTime();
+
       if (!Number.isFinite(last) || Math.abs(next - last) >= 0.05) {
         last = next;
         setTime(next);
       }
+
       raf = requestAnimationFrame(tick);
     };
+
     tick();
+
     return () => cancelAnimationFrame(raf);
   }, [player]);
+
   return time;
 }
 
@@ -134,6 +140,7 @@ function NightTrack({
         className="relative h-11 cursor-pointer overflow-hidden bg-muted/40"
         onClick={(event) => {
           const rect = event.currentTarget.getBoundingClientRect();
+
           if (rect.width <= 0) return;
           const ratio = (event.clientX - rect.left) / rect.width;
           onSeek(domain.start + ratio * (domain.end - domain.start));
@@ -150,6 +157,7 @@ function NightTrack({
           const left = percent(start, domain.start, domain.end);
           const width = Math.max(percent(end, domain.start, domain.end) - left, 0.55);
           const selected = pull.fightId === activeId;
+
           return (
             <button
               key={pull.fightId}
@@ -199,8 +207,11 @@ function PullTrack({
   onSeek: (seconds: number) => void;
 }) {
   if (!pull) {
-    return <p className="py-4 text-xs text-muted-foreground">Select a pull to zoom the timeline.</p>;
+    return (
+      <p className="py-4 text-xs text-muted-foreground">Select a pull to zoom the timeline.</p>
+    );
   }
+
   const start = pullToVideoSeconds(pull, source);
   const end = Math.max(pullEndVideoSeconds(pull, source), start + 0.001);
   const inVod = pullInSource(pull, source);
@@ -216,6 +227,7 @@ function PullTrack({
         onClick={(event) => {
           if (!inVod) return;
           const rect = event.currentTarget.getBoundingClientRect();
+
           if (rect.width <= 0) return;
           const next = (event.clientX - rect.left) / rect.width;
           onSeek(start + next * (end - start));
@@ -230,6 +242,7 @@ function PullTrack({
 
 function Playhead({ at }: { at: number }) {
   const left = Math.min(100, Math.max(0, at));
+
   return (
     <div
       aria-hidden

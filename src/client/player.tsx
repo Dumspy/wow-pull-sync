@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import type { Json } from "../json";
 import { track } from "./analytics";
 import { formatClock, formatSeconds } from "./format";
 
@@ -14,13 +15,30 @@ interface YtPlayer {
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
   destroy(): void;
-  getCurrentTime(): number;
+  getCurrentTime(): Json;
+}
+
+interface YtPlayerOptions {
+  videoId: string;
+  width: string;
+  height: string;
+  playerVars: {
+    rel: number;
+    modestbranding: number;
+    playsinline: number;
+    enablejsapi: number;
+    origin: string;
+  };
+  events: {
+    onReady: () => void;
+    onStateChange: (event: { data: number }) => void;
+  };
 }
 
 declare global {
   interface Window {
     YT?: {
-      Player: new (element: HTMLElement, options: unknown) => YtPlayer;
+      Player: new (element: HTMLElement, options: YtPlayerOptions) => YtPlayer;
     };
     onYouTubeIframeAPIReady?: () => void;
   }
@@ -28,12 +46,14 @@ declare global {
 
 function loadYoutubeApi(): Promise<void> {
   if (window.YT?.Player) return Promise.resolve();
+
   return new Promise((resolve) => {
     const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       previous?.();
       resolve();
     };
+
     if (!document.querySelector("script[data-youtube-iframe-api]")) {
       const script = document.createElement("script");
       script.src = "https://www.youtube.com/iframe_api";
@@ -45,6 +65,7 @@ function loadYoutubeApi(): Promise<void> {
 
 export function devFakePlayer(): boolean {
   if (!import.meta.env.DEV) return false;
+
   return new URLSearchParams(window.location.search).get("player") === "fake";
 }
 
@@ -62,6 +83,7 @@ export function RaidPlayer({
   if (fake) {
     return <FakePlayer duration={duration} onController={onController} />;
   }
+
   return <YoutubePlayer videoId={videoId} onController={onController} />;
 }
 
@@ -78,6 +100,7 @@ function YoutubePlayer({
 
   useEffect(() => {
     const host = hostRef.current;
+
     if (!host) return;
     let cancelled = false;
     let player: YtPlayer | null = null;
@@ -89,7 +112,9 @@ function YoutubePlayer({
 
     const noteState = (state: number) => {
       const isPlaying = state === 1;
-      if (isPlaying && !playing) track("VOD played", {});
+
+      if (isPlaying && !playing) track("VOD played");
+
       if (isPlaying) playing = true;
       else if (state === -1 || state === 0 || state === 2 || state === 5) playing = false;
     };
@@ -97,6 +122,7 @@ function YoutubePlayer({
     const controller: PlayerController = {
       seekTo(seconds) {
         seekTarget = seconds;
+
         if (ready && player) {
           player.seekTo(seconds, true);
           player.playVideo();
@@ -107,19 +133,24 @@ function YoutubePlayer({
       getCurrentTime() {
         if (!ready || !player) return seekTarget ?? pending ?? 0;
         let reported = 0;
+
         try {
           const value = player.getCurrentTime();
-          reported = typeof value === "number" && Number.isFinite(value) ? value : 0;
+          // SAFETY: Number.isFinite accepts only finite numbers, which are JSON numbers.
+          reported = Number.isFinite(value) ? (value as number) : 0;
         } catch {
           reported = 0;
         }
+
         if (seekTarget != null && Math.abs(reported - seekTarget) > 0.75) return seekTarget;
         seekTarget = null;
+
         return reported;
       },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
+
         return () => listeners.delete(listener);
       },
     };
@@ -146,12 +177,14 @@ function YoutubePlayer({
         events: {
           onReady: () => {
             ready = true;
+
             if (pending != null) {
               seekTarget = pending;
               player?.seekTo(pending, true);
               player?.playVideo();
               pending = null;
             }
+
             listeners.forEach((listener) => listener());
           },
           onStateChange: (event: { data: number }) => {
@@ -171,6 +204,13 @@ function YoutubePlayer({
   return <div ref={hostRef} className="h-full w-full [&_iframe]:h-full [&_iframe]:w-full" />;
 }
 
+interface FakeClock {
+  time: number;
+  playing: boolean;
+  last: number;
+  seek: number | null;
+}
+
 function FakePlayer({
   duration,
   onController,
@@ -180,7 +220,7 @@ function FakePlayer({
 }) {
   const onControllerRef = useRef(onController);
   onControllerRef.current = onController;
-  const clockRef = useRef({ time: 0, playing: false, last: 0, seek: null as number | null });
+  const clockRef = useRef<FakeClock>({ time: 0, playing: false, last: 0, seek: null });
   const labelRef = useRef<HTMLParagraphElement>(null);
   const seekRef = useRef<HTMLParagraphElement>(null);
   const durationRef = useRef(duration);
@@ -190,6 +230,7 @@ function FakePlayer({
     let ready = false;
     const listeners = new Set<() => void>();
     const clock = clockRef.current;
+
     const controller: PlayerController = {
       seekTo(seconds) {
         const length = durationRef.current;
@@ -198,7 +239,8 @@ function FakePlayer({
         clock.playing = true;
         clock.last = performance.now();
         clock.seek = seconds;
-        if (!wasPlaying) track("VOD played", {});
+
+        if (!wasPlaying) track("VOD played");
       },
       getCurrentTime() {
         return clock.time;
@@ -206,33 +248,43 @@ function FakePlayer({
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
+
         return () => listeners.delete(listener);
       },
     };
+
     onControllerRef.current(controller);
     ready = true;
     listeners.forEach((listener) => listener());
 
     let raf = 0;
     let cancelled = false;
+
     const tick = (now: number) => {
       if (cancelled) return;
+
       if (clock.playing) {
         const step = (now - clock.last) / 1000;
         clock.last = now;
         clock.time = Math.min(durationRef.current, clock.time + step);
+
         if (clock.time >= durationRef.current) clock.playing = false;
       } else {
         clock.last = now;
       }
+
       if (labelRef.current) labelRef.current.textContent = formatClock(clock.time);
+
       if (seekRef.current) {
         seekRef.current.textContent =
           clock.seek == null ? "seekTo(—)" : `seekTo(${formatSeconds(clock.seek)})`;
       }
+
       raf = requestAnimationFrame(tick);
     };
+
     raf = requestAnimationFrame(tick);
+
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
@@ -256,7 +308,8 @@ function FakePlayer({
           const clock = clockRef.current;
           clock.playing = !clock.playing;
           clock.last = performance.now();
-          if (clock.playing) track("VOD played", {});
+
+          if (clock.playing) track("VOD played");
         }}
       >
         Play / Pause

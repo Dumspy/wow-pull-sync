@@ -7,23 +7,30 @@ import { cn } from "./lib/utils";
 
 function resultLabel(pull: Pull): string {
   if (pull.kill) return "Kill";
+
   if (pull.bossPercentage == null) return "Wipe";
+
   return formatPercent(pull.bossPercentage);
 }
 
 function damageDone(pull: Pull): number {
   if (pull.kill) return 100;
+
   if (pull.bossPercentage == null) return 0;
+
   return Math.min(100, Math.max(0, 100 - pull.bossPercentage));
 }
 
 function groupByBoss(pulls: Pull[]): { name: string; pulls: Pull[] }[] {
   const groups: { name: string; pulls: Pull[] }[] = [];
+
   for (const pull of pulls) {
     const last = groups.at(-1);
+
     if (last?.name === pull.bossName) last.pulls.push(pull);
     else groups.push({ name: pull.bossName, pulls: [pull] });
   }
+
   return groups;
 }
 
@@ -55,6 +62,7 @@ export function PullList({
         const key = `${index}:${group.name}`;
         const open = !collapsed[key];
         const killed = group.pulls.some((pull) => pull.kill);
+
         return (
           <section key={key}>
             <button
@@ -75,6 +83,7 @@ export function PullList({
                   const inVod = pullInSource(pull, source);
                   const selected = pull.fightId === activeId;
                   const when = inVod ? formatClock(pullToVideoSeconds(pull, source)) : "not in VOD";
+
                   return (
                     <button
                       key={pull.fightId}
@@ -100,7 +109,10 @@ export function PullList({
                       <span className="flex items-center gap-2 text-[11px]">
                         <span className="h-1 min-w-0 flex-1 bg-foreground/10">
                           <span
-                            className={cn("block h-full", pull.kill ? "bg-primary" : "bg-foreground/40")}
+                            className={cn(
+                              "block h-full",
+                              pull.kill ? "bg-primary" : "bg-foreground/40",
+                            )}
                             style={{ width: `${damageDone(pull)}%` }}
                           />
                         </span>

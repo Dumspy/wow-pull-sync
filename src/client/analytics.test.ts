@@ -9,7 +9,7 @@ describe("analytics", () => {
       initAnalytics();
       track("raid loaded", { pull_count: 3 });
       track("pull clicked", { encounter_id: 3492, kill: false });
-      track("VOD played", {});
+      track("VOD played");
     }).not.toThrow();
   });
 });

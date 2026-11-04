@@ -3,10 +3,13 @@ import type { PostHog } from "posthog-js";
 /** Named product events. `$pageview` is sent by PostHog on init, not via `track`. */
 export type AnalyticsEvent = "raid loaded" | "pull clicked" | "VOD played";
 
-export interface AnalyticsProperties {
-  "raid loaded": { pull_count: number };
-  "pull clicked": { encounter_id: number; kill: boolean };
-  "VOD played": Record<string, never>;
+export interface RaidLoadedProperties {
+  pull_count: number;
+}
+
+export interface PullClickedProperties {
+  encounter_id: number;
+  kill: boolean;
 }
 
 type Client = Pick<PostHog, "capture">;
@@ -21,14 +24,17 @@ const pending: Array<() => void> = [];
  */
 function projectKey(): string | undefined {
   if (import.meta.env.DEV) return undefined;
-  const key = import.meta.env.VITE_POSTHOG_KEY;
-  if (typeof key !== "string") return undefined;
-  const trimmed = key.trim();
-  return trimmed === "" ? undefined : trimmed;
+
+  const key = import.meta.env.VITE_POSTHOG_KEY?.trim() ?? "";
+
+  if (key === "") return undefined;
+
+  return key;
 }
 
 export function initAnalytics(): void {
   const key = projectKey();
+
   if (!key || starting || client) return;
   starting = true;
   // Slim build has no session-replay, survey, or product-tour code.
@@ -65,6 +71,7 @@ export function initAnalytics(): void {
         advanced_disable_feature_flags: true,
       });
       client = posthog;
+
       for (const send of pending.splice(0)) send();
     })
     .catch(() => {
@@ -73,11 +80,19 @@ export function initAnalytics(): void {
     });
 }
 
-export function track<E extends AnalyticsEvent>(event: E, properties: AnalyticsProperties[E]): void {
+export function track(event: "raid loaded", properties: RaidLoadedProperties): void;
+export function track(event: "pull clicked", properties: PullClickedProperties): void;
+export function track(event: "VOD played"): void;
+export function track(
+  event: AnalyticsEvent,
+  properties?: RaidLoadedProperties | PullClickedProperties,
+): void {
   if (!projectKey()) return;
+
   const send = () => {
     client?.capture(event, properties);
   };
+
   if (client) send();
   else if (starting) pending.push(send);
 }
