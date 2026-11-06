@@ -22,6 +22,8 @@ export interface MatchResult {
 export function matchPullToVod(input: MatchInput): MatchResult {
   const vodSeconds =
     (input.reportStartMs + input.fightStartMs - input.actualStartMs) / 1000 + input.offsetSeconds;
+
   const inVod = vodSeconds >= 0 && vodSeconds <= input.vodDurationSeconds;
+
   return { vodSeconds, inVod };
 }

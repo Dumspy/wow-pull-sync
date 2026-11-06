@@ -1,8 +1,10 @@
+import { hc } from "hono/client";
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
+import type { AppType } from "../api";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, PullSyncResponse } from "../types";
+import type { Pull } from "../types";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -22,10 +24,13 @@ interface RaidSession {
 
 const REPORT = "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9";
 const VOD = "https://youtube.com/live/BLJBhzLNt8w";
+const client = hc<AppType>("/api");
 
 function reportHref(code: string, fightId: number | null): string {
   const base = `https://www.warcraftlogs.com/reports/${encodeURIComponent(code)}`;
+
   if (fightId == null) return base;
+
   return `${base}#fight=${fightId}`;
 }
 
@@ -35,6 +40,7 @@ function pullSummary(pull: Pull): string {
     : pull.bossPercentage != null
       ? formatPercent(pull.bossPercentage)
       : "Wipe";
+
   return `${pull.bossName} · #${pull.pullNumber} · ${result}`;
 }
 
@@ -63,8 +69,10 @@ export function App() {
   useEffect(() => {
     if (!player || !active || !session || activeId == null) return;
     const pull = session.pulls.find((item) => item.fightId === activeId);
+
     if (!pull || !pullInSource(pull, active)) return;
     const seconds = pullToVideoSeconds(pull, active);
+
     return player.onReady(() => {
       player.seekTo(seconds);
     });
@@ -72,12 +80,15 @@ export function App() {
 
   function applyOffset(next: number) {
     setSources((current) =>
-      current.map((source) => (source.id === activeSourceId ? { ...source, offset: next } : source)),
+      current.map((source) =>
+        source.id === activeSourceId ? { ...source, offset: next } : source,
+      ),
     );
   }
 
   function selectPull(pull: Pull) {
     setActiveId(pull.fightId);
+
     if (!active || !pullInSource(pull, active)) return;
     player?.seekTo(pullToVideoSeconds(pull, active));
   }
@@ -85,9 +96,12 @@ export function App() {
   function step(direction: -1 | 1) {
     if (!session || session.pulls.length === 0) return;
     const index = session.pulls.findIndex((pull) => pull.fightId === activeId);
+
     const nextIndex =
       index < 0 ? (direction === 1 ? 0 : session.pulls.length - 1) : index + direction;
+
     const pull = session.pulls[nextIndex];
+
     if (!pull) return;
     selectPull(pull);
   }
@@ -96,26 +110,30 @@ export function App() {
     event.preventDefault();
     setError(null);
     const offsetSeconds = offsetText.trim() === "" ? 0 : Number(offsetText);
+
     if (!Number.isFinite(offsetSeconds)) {
       setError("Offset must be a number of seconds.");
+
       return;
     }
+
     setLoading(true);
+
     try {
-      const response = await fetch("/api/pulls", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reportUrl, vodUrl, offsetSeconds: 0 }),
+      const response = await client.pulls.$post({
+        json: { reportUrl, vodUrl, offsetSeconds: 0 },
       });
-      const body = (await response.json()) as PullSyncResponse & { error?: string };
+
       if (!response.ok) {
-        setError(body.error || "Something went wrong loading that raid.");
+        const error = await response.json();
+
+        setError(error.error || "Something went wrong loading that raid.");
+
         return;
       }
-      if (typeof body.vodStartedAtMs !== "number" || !Array.isArray(body.pulls)) {
-        setError("The app returned an unexpected response.");
-        return;
-      }
+
+      const body = await response.json();
+
       const source: VideoSource = {
         kind: "youtube",
         id: body.videoId,
@@ -123,6 +141,7 @@ export function App() {
         duration: body.vodDurationSeconds,
         offset: offsetSeconds,
       };
+
       const pulls = body.pulls;
       const first = pulls.find((pull) => pullInSource(pull, source)) ?? pulls[0] ?? null;
       setSession({
@@ -245,7 +264,9 @@ export function App() {
           >
             Prev
           </Button>
-          <p className="max-w-56 truncate text-xs">{activePull ? pullSummary(activePull) : "No pull"}</p>
+          <p className="max-w-56 truncate text-xs">
+            {activePull ? pullSummary(activePull) : "No pull"}
+          </p>
           <Button
             type="button"
             size="sm"
@@ -266,6 +287,7 @@ export function App() {
             onChange={(event) => {
               setOffsetText(event.target.value);
               const next = Number(event.target.value);
+
               if (event.target.value.trim() !== "" && Number.isFinite(next)) applyOffset(next);
             }}
             className="h-7 w-16 px-1.5"
@@ -289,7 +311,12 @@ export function App() {
             Sources
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <PullList pulls={session.pulls} source={active} activeId={activeId} onSelect={selectPull} />
+            <PullList
+              pulls={session.pulls}
+              source={active}
+              activeId={activeId}
+              onSelect={selectPull}
+            />
           </div>
         </aside>
         <div className="relative min-w-0 flex-1 bg-black">

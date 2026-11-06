@@ -26,6 +26,7 @@ describe("pull to video seconds", () => {
     for (const offset of [0, 10, -30]) {
       const source = sourceFrom(vod, offset);
       const pulls = buildPulls(report, vod, offset);
+
       for (const pull of pulls) {
         expect(pullToVideoSeconds(pull, source)).toBeCloseTo(pull.vodSeconds, 6);
         expect(pullInSource(pull, source)).toBe(pull.inVod);
@@ -45,6 +46,7 @@ describe("pull to video seconds", () => {
     const late = readYoutubeVideo(
       fixtureYoutubeBody(FIXTURE_VIDEO_ID, "https://youtube.com/live/BLJBhzLNt8w?fixture=outside"),
     );
+
     const source = sourceFrom(late, 0);
     const pulls = buildPulls(report, late, 0);
     expect(pullInSource(pulls[0]!, source)).toBe(false);

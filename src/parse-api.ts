@@ -1,91 +1,143 @@
+import { z } from "zod";
+
 import { parseIso8601Duration } from "./duration";
 import { HttpError } from "./http-error";
-import type { Fight, ReportSummary, VodSummary } from "./types";
+import type { Json } from "./json";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+const fightSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  encounterID: z.number(),
+  startTime: z.number(),
+  endTime: z.number(),
+  kill: z.boolean().nullable().catch(null),
+  bossPercentage: z.number().nullable().catch(null),
+});
+
+const reportSchema = z.object({
+  code: z.string().catch(""),
+  title: z.string().catch("Warcraft Logs report"),
+  startTime: z.number(),
+  fights: z.array(fightSchema),
+});
+
+const invalidReport = "invalid";
+
+const reportValue = z.union([reportSchema, z.null(), z.literal(invalidReport)]);
+
+const wclResponseSchema = z.object({
+  errors: z.array(z.object({ message: z.string().optional() }).catch({})).catch([]),
+  data: z
+    .object({
+      reportData: z
+        .object({
+          report: reportValue.optional().catch(invalidReport),
+        })
+        .nullish()
+        .catch(null),
+    })
+    .nullish()
+    .catch(null),
+});
+
+const youtubeResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().catch(""),
+      liveStreamingDetails: z
+        .object({
+          actualStartTime: z.string(),
+          actualEndTime: z.string(),
+        })
+        .nullish()
+        .catch(null),
+      contentDetails: z
+        .object({
+          duration: z.string(),
+        })
+        .nullish()
+        .catch(null),
+      snippet: z
+        .object({
+          title: z.string(),
+        })
+        .nullish()
+        .catch(null),
+    }),
+  ),
+});
+
+export type Fight = z.output<typeof fightSchema>;
+
+export type ReportSummary = z.output<typeof reportSchema>;
+
+export interface VodSummary {
+  videoId: string;
+  title: string;
+  actualStartMs: number;
+  durationSeconds: number;
 }
 
-export function readReport(body: unknown): ReportSummary {
-  if (!isRecord(body)) {
+export function readReport(body: Json): ReportSummary {
+  const parsed = wclResponseSchema.safeParse(body);
+
+  if (!parsed.success) {
     throw new HttpError(502, "Warcraft Logs returned an unexpected response.");
   }
-  const errors = body.errors;
-  if (Array.isArray(errors) && errors.length > 0) {
-    const first = errors[0];
-    const message =
-      isRecord(first) && typeof first.message === "string"
-        ? first.message
-        : "Warcraft Logs rejected the report.";
-    throw new HttpError(400, message);
+
+  const error = parsed.data.errors[0];
+
+  if (error) {
+    throw new HttpError(400, error.message ?? "Warcraft Logs rejected the report.");
   }
-  const data = isRecord(body.data) ? body.data : null;
-  const reportData = data && isRecord(data.reportData) ? data.reportData : null;
-  const report = reportData ? reportData.report : undefined;
+
+  const report = parsed.data.data?.reportData?.report;
+
   if (report == null) {
     throw new HttpError(404, "No Warcraft Logs report found for that link.");
   }
-  if (!isRecord(report) || !Array.isArray(report.fights) || typeof report.startTime !== "number") {
+
+  if (report === invalidReport) {
     throw new HttpError(502, "Warcraft Logs returned an unexpected response.");
   }
-  const fights: Fight[] = report.fights.map((fight) => {
-    if (
-      !isRecord(fight) ||
-      typeof fight.id !== "number" ||
-      typeof fight.name !== "string" ||
-      typeof fight.encounterID !== "number" ||
-      typeof fight.startTime !== "number" ||
-      typeof fight.endTime !== "number"
-    ) {
-      throw new HttpError(502, "Warcraft Logs returned an unexpected response.");
-    }
-    return {
-      id: fight.id,
-      name: fight.name,
-      encounterID: fight.encounterID,
-      startTime: fight.startTime,
-      endTime: fight.endTime,
-      kill: typeof fight.kill === "boolean" ? fight.kill : null,
-      bossPercentage: typeof fight.bossPercentage === "number" ? fight.bossPercentage : null,
-    };
-  });
-  return {
-    code: typeof report.code === "string" ? report.code : "",
-    title: typeof report.title === "string" ? report.title : "Warcraft Logs report",
-    startTime: report.startTime,
-    fights,
-  };
+
+  return report;
 }
 
-export function readYoutubeVideo(body: unknown): VodSummary {
-  if (!isRecord(body) || !Array.isArray(body.items)) {
+export function readYoutubeVideo(body: Json): VodSummary {
+  const parsed = youtubeResponseSchema.safeParse(body);
+
+  if (!parsed.success) {
     throw new HttpError(502, "YouTube returned an unexpected response.");
   }
-  if (body.items.length === 0) {
+
+  const item = parsed.data.items[0];
+
+  if (!item) {
     throw new HttpError(400, "No YouTube video found for that link.");
   }
-  const item = body.items[0];
-  if (!isRecord(item)) {
-    throw new HttpError(502, "YouTube returned an unexpected response.");
-  }
-  const live = isRecord(item.liveStreamingDetails) ? item.liveStreamingDetails : null;
-  if (!live || typeof live.actualStartTime !== "string" || typeof live.actualEndTime !== "string") {
+
+  const live = item.liveStreamingDetails;
+
+  if (!live) {
     throw new HttpError(400, "That video is not a past live stream.");
   }
-  const content = isRecord(item.contentDetails) ? item.contentDetails : null;
-  const duration =
-    content && typeof content.duration === "string" ? parseIso8601Duration(content.duration) : null;
+
+  const duration = item.contentDetails ? parseIso8601Duration(item.contentDetails.duration) : null;
+
   if (duration == null) {
     throw new HttpError(502, "YouTube did not return a video length.");
   }
+
   const actualStartMs = Date.parse(live.actualStartTime);
+
   if (!Number.isFinite(actualStartMs)) {
     throw new HttpError(502, "YouTube returned an unexpected start time.");
   }
-  const snippet = isRecord(item.snippet) ? item.snippet : null;
+
   return {
-    videoId: typeof item.id === "string" ? item.id : "",
-    title: snippet && typeof snippet.title === "string" ? snippet.title : "YouTube VOD",
+    videoId: item.id,
+    title: item.snippet?.title ?? "YouTube VOD",
     actualStartMs,
     durationSeconds: duration,
   };

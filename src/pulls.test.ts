@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { formatClock } from "./client/format";
 import {
   FIXTURE_NON_LIVE_VIDEO_ID,
@@ -64,12 +65,15 @@ describe("recorded raid night", () => {
   it("matches the expected boss pulls and drops trash, including same-name trash", () => {
     const pulls = buildPulls(report, vod, 0);
     expect(pulls).toHaveLength(22);
-    expect(report.fights.some((fight) => fight.encounterID === 0 && fight.kill === null)).toBe(true);
+    expect(report.fights.some((fight) => fight.encounterID === 0 && fight.kill === null)).toBe(
+      true,
+    );
     expect(pulls.filter((pull) => pull.bossName === "Nymrissa Wavecaller")).toHaveLength(1);
 
     pulls.forEach((pull, index) => {
       const row = expected[index];
       expect(row, `row ${index}`).toBeDefined();
+
       if (!row) return;
       const [fightId, boss, pullNumber, kill, duration, bossPercent, vodSec, timestamp] = row;
       expect(pull.fightId).toBe(fightId);
@@ -98,9 +102,11 @@ describe("recorded raid night", () => {
 describe("pulls outside the VOD", () => {
   it("marks pulls before a later stream start as not in the VOD", () => {
     const report = readReport(fixtureReportBody("TPYJD2c4VkLZfBp9"));
+
     const late = readYoutubeVideo(
       fixtureYoutubeBody(FIXTURE_VIDEO_ID, "https://youtube.com/live/BLJBhzLNt8w?fixture=outside"),
     );
+
     expect(late.actualStartMs - Date.parse("2026-10-29T18:38:02Z")).toBe(30 * 60 * 1000);
     expect(late.durationSeconds).toBe(9495);
     const pulls = buildPulls(report, late, 0);
@@ -111,14 +117,79 @@ describe("pulls outside the VOD", () => {
   });
 });
 
+describe("external response errors", () => {
+  it("returns the Warcraft Logs error message", () => {
+    expect(() => readReport({ errors: [{ message: "no such report" }] })).toThrow("no such report");
+  });
+
+  it("treats a missing report as not found and a bad report as a bad gateway", () => {
+    expect(() => readReport({ data: { reportData: { report: null } } })).toThrow(
+      "No Warcraft Logs report found for that link.",
+    );
+
+    try {
+      readReport({ data: { reportData: { report: {} } } });
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpError);
+
+      if (!(error instanceof HttpError)) return;
+
+      expect(error.status).toBe(502);
+      expect(error.message).toBe("Warcraft Logs returned an unexpected response.");
+    }
+  });
+
+  it("rejects an empty YouTube list, a video with no length, and a bad start time", () => {
+    expect(() => readYoutubeVideo({ items: [] })).toThrow("No YouTube video found for that link.");
+
+    expect(() =>
+      readYoutubeVideo({
+        items: [
+          {
+            liveStreamingDetails: {
+              actualStartTime: "2020-01-01T00:00:00Z",
+              actualEndTime: "2020-01-01T01:00:00Z",
+            },
+          },
+        ],
+      }),
+    ).toThrow("YouTube did not return a video length.");
+
+    expect(() =>
+      readYoutubeVideo({
+        items: [
+          {
+            liveStreamingDetails: { actualStartTime: "not-a-date", actualEndTime: "also" },
+            contentDetails: { duration: "PT1S" },
+          },
+        ],
+      }),
+    ).toThrow("YouTube returned an unexpected start time.");
+  });
+});
+
 describe("youtube errors", () => {
   it("rejects the recorded non-live video", () => {
-    expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(HttpError);
+    expect(() => readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID))).toThrow(
+      HttpError,
+    );
+
     try {
       readYoutubeVideo(fixtureYoutubeBody(FIXTURE_NON_LIVE_VIDEO_ID));
     } catch (error) {
       expect(error).toBeInstanceOf(HttpError);
-      expect((error as HttpError).message).toBe("That video is not a past live stream.");
+
+      if (!(error instanceof HttpError)) return;
+
+      expect(error.message).toBe("That video is not a past live stream.");
     }
+  });
+
+  it("keeps an unknown fixture video on the non-live body and uses the requested id", () => {
+    const body = fixtureYoutubeBody("abcdefghijk");
+    const parsed = z.object({ items: z.array(z.object({ id: z.string() })) }).parse(body);
+
+    expect(parsed.items[0]?.id).toBe("abcdefghijk");
+    expect(() => readYoutubeVideo(body)).toThrow("That video is not a past live stream.");
   });
 });

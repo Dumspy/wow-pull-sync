@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test and build
+    name: Lint, format, test, and build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -26,6 +26,10 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npm run fmt:check
       - name: Test
         run: npm test
       - name: Build
