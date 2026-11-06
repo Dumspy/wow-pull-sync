@@ -24,6 +24,7 @@ export function buildPulls(report: ReportSummary, vod: VodSummary, offsetSeconds
 
     return {
       fightId: fight.id,
+      encounterId: fight.encounterID,
       bossName: fight.name,
       kill: fight.kill === true,
       pullNumber,

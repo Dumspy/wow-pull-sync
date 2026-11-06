@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { api } from "./api";
+import { pullSyncResponseSchema } from "./contract";
 import app from "./worker";
 
 function post(body: string) {
@@ -81,6 +82,28 @@ describe("POST /api/pulls", () => {
     expect(await other.text()).toBe("page");
     expect(wrongMethod.status).toBe(404);
     expect(mountedPost.status).toBe(400);
+  });
+
+  it("keeps the encounter id on the pulls response", async () => {
+    const response = await api.request(
+      "/pulls",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reportUrl: "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9",
+          vodUrl: "https://youtube.com/live/BLJBhzLNt8w",
+        }),
+      },
+      { USE_FIXTURES: "true" },
+    );
+
+    expect(response.status).toBe(200);
+
+    const body = pullSyncResponseSchema.parse(await response.json());
+
+    expect(body.pulls[0]?.encounterId).toBe(3492);
+    expect(body.pulls.at(-1)?.encounterId).toBe(3379);
   });
 
   it("treats a missing offset as zero and then checks the report URL", async () => {

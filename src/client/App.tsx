@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import type { AppType } from "../api";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
 import type { Pull } from "../types";
+import { track } from "./analytics";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { Input } from "./components/ui/input";
@@ -87,6 +88,7 @@ export function App() {
   }
 
   function selectPull(pull: Pull) {
+    track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill });
     setActiveId(pull.fightId);
 
     if (!active || !pullInSource(pull, active)) return;
@@ -143,6 +145,7 @@ export function App() {
       };
 
       const pulls = body.pulls;
+      track("raid loaded", { pull_count: pulls.length });
       const first = pulls.find((pull) => pullInSource(pull, source)) ?? pulls[0] ?? null;
       setSession({
         reportCode: body.reportCode,

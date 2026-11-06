@@ -88,6 +88,8 @@ describe("recorded raid night", () => {
       expect(formatClock(pull.vodSeconds)).toBe(timestamp);
       expect(pull.inVod).toBe(true);
     });
+    expect(pulls[0]?.encounterId).toBe(3492);
+    expect(pulls.at(-1)?.encounterId).toBe(3379);
     expect(pulls[0]?.vodSeconds).toBeCloseTo(1471.7, 1);
     expect(formatClock(pulls[0]?.vodSeconds ?? 0)).toBe("24:32");
   });

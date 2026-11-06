@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 
-import { pullRequestSchema, type PullSyncResponse } from "./contract";
+import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
@@ -76,7 +76,7 @@ export const api = new Hono<{ Bindings: Env }>().post(
       const report = readReport(reportBody);
       const vod = readYoutubeVideo(youtubeBody);
 
-      const response: PullSyncResponse = {
+      const response = pullSyncResponseSchema.parse({
         videoId: vod.videoId || videoId,
         videoTitle: vod.title,
         reportCode: report.code || code,
@@ -84,7 +84,7 @@ export const api = new Hono<{ Bindings: Env }>().post(
         vodStartedAtMs: vod.actualStartMs,
         vodDurationSeconds: vod.durationSeconds,
         pulls: buildPulls(report, vod, request.offsetSeconds),
-      };
+      });
 
       return c.json(response, 200);
     } catch (error) {
