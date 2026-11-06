@@ -2,298 +2,783 @@
   "data": {
     "reportData": {
       "report": {
+        "code": "TPYJD2c4VkLZfBp9",
         "title": "AP Main Raid 29/10/26",
         "startTime": 1793299984610,
         "endTime": 1793308447701,
         "zone": {
+          "id": 53,
           "name": "The Venomous Abyss"
+        },
+        "guild": {
+          "id": 596680,
+          "name": "Average Pillagers",
+          "server": {
+            "name": "Azjol-Nerub",
+            "region": {
+              "slug": "EU"
+            }
+          }
+        },
+        "owner": {
+          "name": "Dispy"
+        },
+        "phases": [
+          {
+            "encounterID": 3492,
+            "phases": [
+              {
+                "id": 1,
+                "name": "Stage One: Fury of the Serpent Mother",
+                "isIntermission": false
+              },
+              {
+                "id": 2,
+                "name": "Stage Two: Children of the Doomscale",
+                "isIntermission": false
+              },
+              {
+                "id": 3,
+                "name": "Intermission: The Shattering",
+                "isIntermission": true
+              },
+              {
+                "id": 4,
+                "name": "Stage Three: Ula'tek's Ascension",
+                "isIntermission": false
+              }
+            ]
+          }
+        ],
+        "masterData": {
+          "actors": [
+            {
+              "id": 1,
+              "name": "Dispý",
+              "subType": "DeathKnight",
+              "server": "AzjolNerub",
+              "icon": "DeathKnight-Blood"
+            },
+            {
+              "id": 2,
+              "name": "Darkbea",
+              "subType": "DeathKnight",
+              "server": "Quel'Thalas",
+              "icon": "DeathKnight-Blood"
+            },
+            {
+              "id": 7,
+              "name": "Shrizzlinho",
+              "subType": "Druid",
+              "server": "TarrenMill",
+              "icon": "Druid-Balance"
+            },
+            {
+              "id": 8,
+              "name": "Sixpaths",
+              "subType": "Hunter",
+              "server": "Quel'Thalas",
+              "icon": "Hunter-Marksmanship"
+            },
+            {
+              "id": 9,
+              "name": "Bonkmeboi",
+              "subType": "Paladin",
+              "server": "AzjolNerub",
+              "icon": "Paladin-Holy"
+            },
+            {
+              "id": 11,
+              "name": "Ohsama",
+              "subType": "Priest",
+              "server": "Draenor",
+              "icon": "Priest-Shadow"
+            },
+            {
+              "id": 12,
+              "name": "Alatie",
+              "subType": "Paladin",
+              "server": "Quel'Thalas",
+              "icon": "Paladin-Retribution"
+            },
+            {
+              "id": 13,
+              "name": "Magenolia",
+              "subType": "Mage",
+              "server": "ArgentDawn",
+              "icon": "Mage-Arcane"
+            },
+            {
+              "id": 14,
+              "name": "Larill",
+              "subType": "Rogue",
+              "server": "TwistingNether",
+              "icon": "Rogue-Assassination"
+            },
+            {
+              "id": 15,
+              "name": "Kaia",
+              "subType": "Warlock",
+              "server": "AzjolNerub",
+              "icon": "Warlock-Demonology"
+            },
+            {
+              "id": 16,
+              "name": "Nydarri",
+              "subType": "Mage",
+              "server": "Quel'Thalas",
+              "icon": "Mage-Arcane"
+            },
+            {
+              "id": 20,
+              "name": "Healgoesbrr",
+              "subType": "Priest",
+              "server": "AzjolNerub",
+              "icon": "Priest-Holy"
+            },
+            {
+              "id": 23,
+              "name": "Frizzivo",
+              "subType": "Evoker",
+              "server": "Quel'Thalas",
+              "icon": "Evoker-Preservation"
+            },
+            {
+              "id": 24,
+              "name": "Shenteng",
+              "subType": "Monk",
+              "server": "Draenor",
+              "icon": "Monk-Windwalker"
+            },
+            {
+              "id": 25,
+              "name": "Rathil",
+              "subType": "Evoker",
+              "server": "ArgentDawn",
+              "icon": "Evoker"
+            },
+            {
+              "id": 27,
+              "name": "Hazcii",
+              "subType": "DemonHunter",
+              "server": "AzjolNerub",
+              "icon": "DemonHunter-Havoc"
+            },
+            {
+              "id": 29,
+              "name": "Bloodfever",
+              "subType": "Hunter",
+              "server": "AzjolNerub",
+              "icon": "Hunter-BeastMastery"
+            },
+            {
+              "id": 33,
+              "name": "Jordándk",
+              "subType": "DeathKnight",
+              "server": "Kazzak",
+              "icon": "DeathKnight"
+            },
+            {
+              "id": 34,
+              "name": "Itsys",
+              "subType": "Shaman",
+              "server": "Quel'Thalas",
+              "icon": "Shaman"
+            },
+            {
+              "id": 44,
+              "name": "Merratonz",
+              "subType": "Monk",
+              "server": "Quel'Thalas",
+              "icon": "Monk-Windwalker"
+            },
+            {
+              "id": 117,
+              "name": "Rylon",
+              "subType": "Warrior",
+              "server": "Quel'Thalas",
+              "icon": "Warrior-Arms"
+            },
+            {
+              "id": 164,
+              "name": "Sweggleswife",
+              "subType": "Monk",
+              "server": "Silvermoon",
+              "icon": "Monk-Mistweaver"
+            }
+          ]
         },
         "fights": [
           {
             "id": 1,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 569089,
             "endTime": 588092,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 99.99,
-            "fightPercentage": 99.99
+            "fightPercentage": 99.99,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 569089
+              }
+            ]
           },
           {
             "id": 2,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 817440,
             "endTime": 889358,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 90.11,
-            "fightPercentage": 92.95
+            "fightPercentage": 92.95,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 817440
+              }
+            ]
           },
           {
             "id": 3,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 986690,
             "endTime": 1278528,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 64.1,
-            "fightPercentage": 73.3
+            "fightPercentage": 73.3,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 986690
+              },
+              {
+                "id": 2,
+                "startTime": 1160775
+              }
+            ]
           },
           {
             "id": 4,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 1330346,
             "endTime": 1455230,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 83.08,
-            "fightPercentage": 87.94
+            "fightPercentage": 87.94,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 1330346
+              }
+            ]
           },
           {
             "id": 5,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 1498850,
             "endTime": 1656781,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 76.74,
-            "fightPercentage": 83.42
+            "fightPercentage": 83.42,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 1498850
+              }
+            ]
           },
           {
             "id": 6,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 1718807,
             "endTime": 1997728,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 64.88,
-            "fightPercentage": 71.69
+            "fightPercentage": 71.69,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 1718807
+              },
+              {
+                "id": 2,
+                "startTime": 1892875
+              }
+            ]
           },
           {
             "id": 7,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 2047975,
             "endTime": 2203006,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 79.74,
-            "fightPercentage": 85.56
+            "fightPercentage": 85.56,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 44, 34, 24, 14, 25, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 2047975
+              }
+            ]
           },
           {
             "id": 8,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 2286047,
             "endTime": 2522818,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 62.77,
-            "fightPercentage": 67.22
+            "fightPercentage": 67.22,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 2286047
+              },
+              {
+                "id": 2,
+                "startTime": 2460111
+              }
+            ]
           },
           {
             "id": 9,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 2565147,
             "endTime": 2747095,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 64.32,
-            "fightPercentage": 74.57
+            "fightPercentage": 74.57,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 2565147
+              },
+              {
+                "id": 2,
+                "startTime": 2739229
+              }
+            ]
           },
           {
             "id": 10,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 2807178,
             "endTime": 3100731,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 63.24,
-            "fightPercentage": 72.68
+            "fightPercentage": 72.68,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 2807178
+              },
+              {
+                "id": 2,
+                "startTime": 2981262
+              }
+            ]
           },
           {
             "id": 11,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 3156062,
             "endTime": 3287677,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 79.98,
-            "fightPercentage": 85.73
+            "fightPercentage": 85.73,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 3156062
+              }
+            ]
           },
           {
             "id": 12,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 3371166,
             "endTime": 3507066,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 79.76,
-            "fightPercentage": 85.57
+            "fightPercentage": 85.57,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 3371166
+              }
+            ]
           },
           {
             "id": 13,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 3560868,
             "endTime": 3801537,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 62.41,
-            "fightPercentage": 66.96
+            "fightPercentage": 66.96,
+            "lastPhase": 2,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 3560868
+              },
+              {
+                "id": 2,
+                "startTime": 3734934
+              }
+            ]
           },
           {
             "id": 14,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 3896434,
             "endTime": 3985381,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 86.69,
-            "fightPercentage": 90.51
+            "fightPercentage": 90.51,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 3896434
+              }
+            ]
           },
           {
             "id": 15,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 4029745,
             "endTime": 4197682,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 68.73,
-            "fightPercentage": 77.72
+            "fightPercentage": 77.72,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 4029745
+              }
+            ]
           },
           {
             "id": 16,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 4267104,
             "endTime": 4757019,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 23.82,
-            "fightPercentage": 16.97
+            "fightPercentage": 16.97,
+            "lastPhase": 3,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 4267104
+              },
+              {
+                "id": 2,
+                "startTime": 4441134
+              },
+              {
+                "id": 3,
+                "startTime": 4586028
+              },
+              {
+                "id": 4,
+                "startTime": 4640353
+              }
+            ]
           },
           {
             "id": 17,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 4927787,
             "endTime": 5060447,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 80.02,
-            "fightPercentage": 85.76
+            "fightPercentage": 85.76,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 4927787
+              }
+            ]
           },
           {
             "id": 18,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 5109992,
             "endTime": 5277934,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 70.17,
-            "fightPercentage": 78.74
+            "fightPercentage": 78.74,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 5109992
+              }
+            ]
           },
           {
             "id": 19,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 5341356,
             "endTime": 5662302,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 52.63,
-            "fightPercentage": 47.49
+            "fightPercentage": 47.49,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 5341356
+              },
+              {
+                "id": 2,
+                "startTime": 5515402
+              },
+              {
+                "id": 3,
+                "startTime": 5660311
+              }
+            ]
           },
           {
             "id": 20,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 6400566,
             "endTime": 6447500,
             "kill": false,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 91.36,
-            "fightPercentage": 93.84
+            "fightPercentage": 93.84,
+            "lastPhase": 1,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 6400566
+              }
+            ]
           },
           {
             "id": 21,
             "name": "Ula'tek",
+            "encounterID": 3492,
             "startTime": 6512751,
             "endTime": 7111763,
             "kill": true,
-            "encounterID": 3492,
             "difficulty": 5,
             "bossPercentage": 0.01,
-            "fightPercentage": 0
+            "fightPercentage": 0,
+            "lastPhase": 3,
+            "friendlyPlayers": [
+              23, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": [
+              {
+                "id": 1,
+                "startTime": 6512751
+              },
+              {
+                "id": 2,
+                "startTime": 6686827
+              },
+              {
+                "id": 3,
+                "startTime": 6831701
+              },
+              {
+                "id": 4,
+                "startTime": 6885029
+              }
+            ]
           },
           {
             "id": 22,
             "name": "Venomous Heart / Ula'tek",
+            "encounterID": 0,
             "startTime": 7111767,
             "endTime": 7111819,
             "kill": null,
-            "encounterID": 0,
             "difficulty": null,
             "bossPercentage": null,
-            "fightPercentage": null
+            "fightPercentage": null,
+            "lastPhase": 0,
+            "friendlyPlayers": [
+              23, 29, 27, 20, 8, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 11, 1, 7
+            ],
+            "phaseTransitions": null
           },
           {
             "id": 23,
             "name": "Tidebound Brute",
+            "encounterID": 0,
             "startTime": 7909498,
             "endTime": 7992523,
             "kill": null,
-            "encounterID": 0,
             "difficulty": null,
             "bossPercentage": null,
-            "fightPercentage": null
+            "fightPercentage": null,
+            "lastPhase": 0,
+            "friendlyPlayers": [23, 164, 29, 8, 2, 16, 12, 9, 15, 34, 14, 24, 25, 13, 1, 7, 11],
+            "phaseTransitions": null
           },
           {
             "id": 24,
             "name": "Nymrissa Wavecaller",
+            "encounterID": 0,
             "startTime": 8004610,
             "endTime": 8004618,
             "kill": null,
-            "encounterID": 0,
             "difficulty": null,
             "bossPercentage": null,
-            "fightPercentage": null
+            "fightPercentage": null,
+            "lastPhase": 0,
+            "friendlyPlayers": [23, 164, 29, 8, 2, 12, 16, 9, 15, 34, 24, 14, 25, 13, 7, 1, 11],
+            "phaseTransitions": null
           },
           {
             "id": 25,
             "name": "Nymrissa Wavecaller",
+            "encounterID": 0,
             "startTime": 8004621,
             "endTime": 8004621,
             "kill": null,
-            "encounterID": 0,
             "difficulty": null,
             "bossPercentage": null,
-            "fightPercentage": null
+            "fightPercentage": null,
+            "lastPhase": 0,
+            "friendlyPlayers": [164, 23, 29, 8, 2, 16, 12, 9, 15, 24, 14, 34, 25, 13, 11, 7, 1],
+            "phaseTransitions": null
           },
           {
             "id": 26,
             "name": "Nymrissa Wavecaller",
+            "encounterID": 3379,
             "startTime": 8158832,
             "endTime": 8444963,
             "kill": true,
-            "encounterID": 3379,
             "difficulty": 5,
             "bossPercentage": 0.01,
-            "fightPercentage": 0.01
+            "fightPercentage": 0.01,
+            "lastPhase": 0,
+            "friendlyPlayers": [
+              23, 164, 29, 27, 8, 20, 2, 12, 16, 9, 15, 34, 24, 14, 25, 117, 13, 33, 7, 1, 11
+            ],
+            "phaseTransitions": null
           }
         ]
       }

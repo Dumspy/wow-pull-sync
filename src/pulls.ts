@@ -1,12 +1,31 @@
+import type { Death, Lane } from "./contract";
 import { matchPullToVod } from "./match";
+import type { WclEvent } from "./parse-api";
 import type { Pull, ReportSummary, VodSummary } from "./types";
 
+/** Events for one report: every player death, and the events of each lane that applies. */
+export interface ReportEvents {
+  deaths: WclEvent[];
+  lanes: { lane: Lane; events: WclEvent[] }[];
+}
+
+export const NO_EVENTS: ReportEvents = { deaths: [], lanes: [] };
+
 /** Boss pulls only (`encounterID > 0`). Pull numbers restart for each boss. */
-export function buildPulls(report: ReportSummary, vod: VodSummary, offsetSeconds: number): Pull[] {
+export function buildPulls(
+  report: ReportSummary,
+  vod: VodSummary,
+  offsetSeconds: number,
+  events: ReportEvents = NO_EVENTS,
+): Pull[] {
   const bosses = report.fights
     .filter((fight) => fight.encounterID > 0)
     .slice()
     .sort((a, b) => a.startTime - b.startTime || a.id - b.id);
+
+  const roster = new Set<number>();
+
+  for (const actor of report.masterData?.actors ?? []) roster.add(actor.id);
 
   const seen = new Map<number, number>();
 
@@ -22,6 +41,42 @@ export function buildPulls(report: ReportSummary, vod: VodSummary, offsetSeconds
       offsetSeconds,
     });
 
+    const sinceStart = (timestamp: number) => Math.max(0, timestamp - fight.startTime);
+
+    const deaths: Death[] = [];
+
+    for (const event of events.deaths) {
+      if (event.fight !== fight.id) continue;
+
+      // Deaths include pets and NPCs; keep the roster's players only.
+      if (roster.size > 0 && !roster.has(event.targetID)) continue;
+
+      deaths.push({
+        atMs: sinceStart(event.timestamp),
+        playerId: event.targetID,
+        killerAbilityId: event.killingAbilityGameID ?? null,
+      });
+    }
+
+    deaths.sort((a, b) => a.atMs - b.atMs);
+
+    const lanes: Pull["lanes"] = [];
+
+    for (const group of events.lanes) {
+      if (group.lane.encounterId !== fight.encounterID) continue;
+
+      const laneEvents: Pull["lanes"][number]["events"] = [];
+
+      for (const event of group.events) {
+        if (event.fight !== fight.id) continue;
+
+        laneEvents.push({ atMs: sinceStart(event.timestamp), spellId: event.abilityGameID });
+      }
+
+      laneEvents.sort((a, b) => a.atMs - b.atMs);
+      lanes.push({ laneId: group.lane.id, events: laneEvents });
+    }
+
     return {
       fightId: fight.id,
       encounterId: fight.encounterID,
@@ -34,6 +89,16 @@ export function buildPulls(report: ReportSummary, vod: VodSummary, offsetSeconds
       endedAt: report.startTime + fight.endTime,
       vodSeconds: match.vodSeconds,
       inVod: match.inVod,
+      difficulty: fight.difficulty,
+      fightPercentage: fight.fightPercentage,
+      lastPhase: fight.lastPhase,
+      phaseStarts: fight.phaseTransitions.map((phase) => ({
+        phaseId: phase.id,
+        atMs: sinceStart(phase.startTime),
+      })),
+      playerIds: fight.friendlyPlayers,
+      deaths,
+      lanes,
     };
   });
 }
