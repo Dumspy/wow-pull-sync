@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { capturePageview, onResolvedPageview } from "./analytics";
 import { queryClient } from "./query-client";
 import { routeTree } from "./routes";
@@ -31,7 +32,9 @@ router.subscribe("onResolved", (event) => {
 export function AppRouter() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
