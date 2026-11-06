@@ -1,4 +1,4 @@
-import type { PostHog, PostHogConfig } from "posthog-js/dist/module.slim.no-external";
+import type { PostHogConfig } from "posthog-js/dist/module.slim.no-external";
 
 import { scrubAnalyticsCapture } from "./analytics-scrub";
 
@@ -14,12 +14,12 @@ export interface PullClickedProperties {
   kill: boolean;
 }
 
-type Client = Pick<PostHog, "capture" | "captureException">;
+type Client = { capture: PostHogCapture };
 
-type ErrorTrackingExtensions = Pick<
-  typeof import("posthog-js/dist/extension-bundles").ErrorTrackingExtensions,
-  "exceptionObserver" | "exceptions"
->;
+type PostHogCapture = (
+  event: string,
+  properties?: RaidLoadedProperties | PullClickedProperties,
+) => void;
 
 /** A previous location is present once the router has resolved at least one navigation. */
 export interface ResolvedNavigation {
@@ -35,14 +35,10 @@ export function onResolvedPageview(
 }
 
 /**
- * Init options shared by the app and the cookieless / exception checks.
- * `capture_exceptions` stays off so unhandled errors are not autocaptured.
- * The error-tracking extensions are what make `captureException` emit `$exception`.
- * Pageviews are sent from the router, so automatic capture stays off.
+ * Init options shared by the app and the cookieless checks.
+ * Exceptions stay off: Sentry owns errors. Pageviews are sent from the router.
  */
-export function analyticsInitOptions(
-  errorTracking: ErrorTrackingExtensions,
-): Partial<PostHogConfig> {
+export function analyticsInitOptions(): Partial<PostHogConfig> {
   const options: Partial<PostHogConfig> = {
     api_host: "https://eu.i.posthog.com",
     // No cookies and no web storage. Identity is a server-side hash.
@@ -72,10 +68,6 @@ export function analyticsInitOptions(
     disable_external_dependency_loading: true,
     advanced_disable_flags: true,
     advanced_disable_feature_flags: true,
-    __extensionClasses: {
-      exceptionObserver: errorTracking.exceptionObserver,
-      exceptions: errorTracking.exceptions,
-    },
   };
 
   return options;
@@ -104,17 +96,17 @@ export function initAnalytics(): void {
 
   if (!key || starting || client) return;
   starting = true;
-  // Slim build has no session-replay, survey, or product-tour code.
-  // Error tracking is registered from the extension bundle, which the slim entry omits.
-  void Promise.all([
-    import("posthog-js/dist/module.slim.no-external"),
-    import("posthog-js/dist/extension-bundles"),
-  ])
-    .then(([posthogModule, extensionModule]) => {
+  // Slim build has no session-replay, survey, product-tour, or exception code.
+  void import("posthog-js/dist/module.slim.no-external")
+    .then((posthogModule) => {
       if (!projectKey()) return;
       const posthog = posthogModule.default;
-      posthog.init(key, analyticsInitOptions(extensionModule.ErrorTrackingExtensions));
-      client = posthog;
+      posthog.init(key, analyticsInitOptions());
+      client = {
+        capture(event, properties) {
+          posthog.capture(event, properties);
+        },
+      };
 
       for (const send of pending.splice(0)) send();
     })
@@ -139,12 +131,6 @@ export function track(
 export function capturePageview(): void {
   enqueue(() => {
     client?.capture("$pageview");
-  });
-}
-
-export function captureQueryError(error: Error, properties: { query: string }): void {
-  enqueue(() => {
-    client?.captureException(error, properties);
   });
 }
 

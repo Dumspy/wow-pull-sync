@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { analyticsInitOptions } from "./analytics";
 
 describe("cookieless analytics", () => {
-  it("keeps the browser empty and emits $exception with the project token", async () => {
+  it("keeps the browser empty and sends product events without $exception", async () => {
     Object.defineProperty(navigator, "webdriver", { configurable: true, get: () => false });
 
     const localKeys: string[] = [];
@@ -34,8 +34,7 @@ describe("cookieless analytics", () => {
 
     const seen: Array<{ event: string; token: unknown; cookieless: unknown }> = [];
     const { default: posthog } = await import("posthog-js/dist/module.slim.no-external");
-    const { ErrorTrackingExtensions } = await import("posthog-js/dist/extension-bundles");
-    const options = analyticsInitOptions(ErrorTrackingExtensions);
+    const options = analyticsInitOptions();
 
     options.before_send = (event) => {
       seen.push({
@@ -48,13 +47,14 @@ describe("cookieless analytics", () => {
     };
 
     posthog.init("phc_cookieless_test", options);
+    posthog.capture("raid loaded", { pull_count: 3 });
+    posthog.capture("$pageview");
     posthog.captureException(new Error("pull sync check"));
 
-    const exception = seen.find((event) => event.event === "$exception");
-
-    expect(exception?.event).toBe("$exception");
-    expect(exception?.token).toBe("phc_cookieless_test");
-    expect(exception?.cookieless).toBe(true);
+    expect(seen.map((event) => event.event)).toEqual(["raid loaded", "$pageview"]);
+    expect(seen.every((event) => event.event !== "$exception")).toBe(true);
+    expect(seen[0]?.token).toBe("phc_cookieless_test");
+    expect(seen[0]?.cookieless).toBe(true);
     // Support probes only. posthog-js deletes them before capture returns.
     expect(localKeys).toEqual(["__mplssupport__"]);
     expect(sessionKeys).toEqual(["__support__"]);

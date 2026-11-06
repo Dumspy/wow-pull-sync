@@ -55,12 +55,13 @@ Deploy from this directory with `npm run deploy`, or with `npx wrangler deploy` 
 
 Cloudflare's Git integration (Workers Builds) can deploy on push instead. Set the build command to `npm run build` and the deploy command to `npx wrangler deploy`. The Worker name in Cloudflare has to match `name` in `wrangler.jsonc`. For other branches, turn preview builds on and leave the preview command as `npx wrangler preview`. That command keeps one URL per branch (`<branch>-pull-sync.<account-subdomain>.workers.dev`) and Cloudflare posts it on the pull request. `npx wrangler versions upload` instead uploads a version and, with `preview_urls` on, returns a new Version URL each time (`<version>-pull-sync.<account-subdomain>.workers.dev`). It does not post that Preview URL comment.
 
-Set the three runtime secrets once. Later deploys keep them.
+Set the three runtime secrets once, plus `SENTRY_DSN` when error reporting should be on. Later deploys keep them. Leave `SENTRY_DSN` unset and Sentry stays off. Source map upload also needs build variables `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_URL` (`https://de.sentry.io`). The browser DSN is the build variable `VITE_SENTRY_DSN`.
 
 ```sh
 npx wrangler secret put WCL_CLIENT_ID
 npx wrangler secret put WCL_CLIENT_SECRET
 npx wrangler secret put YOUTUBE_API_KEY
+npx wrangler secret put SENTRY_DSN
 ```
 
 A branch Preview does not inherit those secrets. Set the same three on the Previews base (`npx wrangler preview base-config secret put <NAME>`) or the preview page cannot call the APIs.
