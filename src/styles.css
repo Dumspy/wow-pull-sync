@@ -49,12 +49,20 @@
   --soft-foreground: oklch(0.7839 0.0114 256.7);
   --border-strong: oklch(0.3657 0.0138 256.8);
 
-  /* WoW class colors, used for POV avatar rings */
-  --class-druid: oklch(0.7276 0.1868 51.3);
+  /* WoW class colors (warcraft.wiki.gg/wiki/Class_colors), used for POV avatar rings */
   --class-death-knight: oklch(0.5308 0.1969 19.5);
-  --class-shaman: oklch(0.5571 0.1882 255.7);
   --class-demon-hunter: oklch(0.5507 0.2299 316);
-  --class-monk: oklch(0.8786 0.216 155.3);
+  --class-druid: oklch(0.7261 0.1875 50.9);
+  --class-evoker: oklch(0.6017 0.0942 176.4);
+  --class-hunter: oklch(0.8158 0.1329 127.9);
+  --class-mage: oklch(0.7725 0.1239 219.7);
+  --class-monk: oklch(0.879 0.2143 155.7);
+  --class-paladin: oklch(0.7638 0.1363 352.8);
+  --class-priest: oklch(1 0 0);
+  --class-rogue: oklch(0.95 0.1591 104.8);
+  --class-shaman: oklch(0.5563 0.1869 255.6);
+  --class-warlock: oklch(0.6711 0.1488 281.2);
+  --class-warrior: oklch(0.7188 0.0802 67.9);
 
   --radius: 0.5rem;
   --font-sans: Geist, system-ui, sans-serif;
@@ -94,11 +102,19 @@
   --color-ring: var(--ring);
   --color-subtle-foreground: var(--subtle-foreground);
   --color-soft-foreground: var(--soft-foreground);
-  --color-class-druid: var(--class-druid);
   --color-class-death-knight: var(--class-death-knight);
-  --color-class-shaman: var(--class-shaman);
   --color-class-demon-hunter: var(--class-demon-hunter);
+  --color-class-druid: var(--class-druid);
+  --color-class-evoker: var(--class-evoker);
+  --color-class-hunter: var(--class-hunter);
+  --color-class-mage: var(--class-mage);
   --color-class-monk: var(--class-monk);
+  --color-class-paladin: var(--class-paladin);
+  --color-class-priest: var(--class-priest);
+  --color-class-rogue: var(--class-rogue);
+  --color-class-shaman: var(--class-shaman);
+  --color-class-warlock: var(--class-warlock);
+  --color-class-warrior: var(--class-warrior);
 
   /* 4px / 6px / 8px / 12px with --radius: 0.5rem */
   --radius-sm: calc(var(--radius) - 4px);

@@ -110,12 +110,39 @@ const SEMANTIC = [
   ["warning-muted", "bg-warning-muted"],
   ["destructive", "bg-destructive"],
   ["ring", "bg-ring"],
-  ["class-druid", "bg-class-druid"],
-  ["class-death-knight", "bg-class-death-knight"],
-  ["class-shaman", "bg-class-shaman"],
-  ["class-demon-hunter", "bg-class-demon-hunter"],
-  ["class-monk", "bg-class-monk"],
 ] as const;
+
+const CLASS_SWATCHES = [
+  ["class-death-knight", "bg-class-death-knight"],
+  ["class-demon-hunter", "bg-class-demon-hunter"],
+  ["class-druid", "bg-class-druid"],
+  ["class-evoker", "bg-class-evoker"],
+  ["class-hunter", "bg-class-hunter"],
+  ["class-mage", "bg-class-mage"],
+  ["class-monk", "bg-class-monk"],
+  ["class-paladin", "bg-class-paladin"],
+  ["class-priest", "bg-class-priest"],
+  ["class-rogue", "bg-class-rogue"],
+  ["class-shaman", "bg-class-shaman"],
+  ["class-warlock", "bg-class-warlock"],
+  ["class-warrior", "bg-class-warrior"],
+] as const;
+
+const CLASSES: WowClass[] = [
+  "death-knight",
+  "demon-hunter",
+  "druid",
+  "evoker",
+  "hunter",
+  "mage",
+  "monk",
+  "paladin",
+  "priest",
+  "rogue",
+  "shaman",
+  "warlock",
+  "warrior",
+];
 
 const ROLES = [
   { value: "leader", label: "Leader" },
@@ -262,6 +289,7 @@ export function DesignGallery() {
         <Section title="Colors">
           <Swatches items={SURFACES} />
           <Swatches items={SEMANTIC} />
+          <Swatches items={CLASS_SWATCHES} />
         </Section>
 
         <Section title="Type">
@@ -327,6 +355,11 @@ export function DesignGallery() {
             <PovAvatar name="Shenteng" wowClass="shaman" />
             <PovAvatar name="Shrizzlinho" wowClass="demon-hunter" />
             <PovAvatar name="Nydarri" wowClass="monk" size="lg" />
+          </Row>
+          <Row label="Every class ring">
+            {CLASSES.map((wowClass) => (
+              <PovAvatar key={wowClass} name={wowClass} wowClass={wowClass} />
+            ))}
           </Row>
           <Row label="Dots and keys">
             <Dot tone="success" />
@@ -769,7 +802,7 @@ export function DesignGallery() {
                 <label className="inline-flex items-center gap-2 text-muted-foreground">
                   Dispy offset
                   <Input
-                    className="h-6 w-14 px-2 text-right font-mono text-xs"
+                    className="h-6 w-20 px-2 text-right font-mono text-xs"
                     defaultValue="+6.0s"
                     aria-label="Sync offset"
                   />

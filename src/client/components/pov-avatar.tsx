@@ -4,11 +4,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 const classRings = {
-  druid: "ring-class-druid",
   "death-knight": "ring-class-death-knight",
-  shaman: "ring-class-shaman",
   "demon-hunter": "ring-class-demon-hunter",
+  druid: "ring-class-druid",
+  evoker: "ring-class-evoker",
+  hunter: "ring-class-hunter",
+  mage: "ring-class-mage",
   monk: "ring-class-monk",
+  paladin: "ring-class-paladin",
+  priest: "ring-class-priest",
+  rogue: "ring-class-rogue",
+  shaman: "ring-class-shaman",
+  warlock: "ring-class-warlock",
+  warrior: "ring-class-warrior",
 } as const;
 
 export type WowClass = keyof typeof classRings;
@@ -30,7 +38,11 @@ function PovAvatar({
     <Avatar
       data-slot="pov-avatar"
       size={size}
-      className={cn("ring-2", wowClass ? classRings[wowClass] : "ring-foreground", className)}
+      className={cn(
+        "ring-2 ring-inset",
+        wowClass ? classRings[wowClass] : "ring-foreground",
+        className,
+      )}
       {...props}
     >
       {src && <AvatarImage src={src} alt="" />}
