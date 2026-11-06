@@ -51,6 +51,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -249,7 +250,9 @@ export function DesignGallery() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<UserMenuTrigger name="Felix" />} />
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Signed in as Felix</DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Signed in as Felix</DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuItem>Sign out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -412,7 +415,9 @@ export function DesignGallery() {
                 Felix <ChevronDown />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuLabel>Signed in as Felix</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Signed in as Felix</DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuItem>Manage guilds</DropdownMenuItem>
                 <DropdownMenuItem>Remove ads with Plus</DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -928,26 +933,32 @@ export function DesignGallery() {
             </div>
           </div>
           <Separator />
-          <AdSlot
-            size="compact"
-            sponsor="[Advertiser]"
-            message="One short line."
-            action={
-              <Button size="xs" variant="outline">
-                Learn more
-              </Button>
-            }
-          />
-          <AdSlot
-            sponsor="[Advertiser]"
-            message="One short line about the offer goes here."
-            action={
-              <Button size="sm" variant="outline">
-                Learn more
-              </Button>
-            }
-            footnote="Ads keep pull-sync free. Remove ads with Plus"
-          />
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-muted-foreground">Ad: bar (with Plus footnote)</span>
+            <AdSlot
+              sponsor="[Advertiser]"
+              message="One short line about the offer goes here."
+              action={
+                <Button size="sm" variant="outline">
+                  Learn more
+                </Button>
+              }
+              footnote="Ads keep pull-sync free. Remove ads with Plus"
+            />
+          </div>
+          <div className="flex max-w-80 flex-col gap-2">
+            <span className="text-xs text-muted-foreground">Ad: compact (side panels)</span>
+            <AdSlot
+              size="compact"
+              sponsor="[Advertiser]"
+              message="One short line."
+              action={
+                <Button size="xs" variant="outline">
+                  Learn more
+                </Button>
+              }
+            />
+          </div>
         </Section>
       </main>
     </div>

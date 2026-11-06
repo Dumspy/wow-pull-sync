@@ -39,7 +39,7 @@ function AdSlot({
           "border text-soft-foreground",
           size === "bar" && "flex h-14 items-center gap-3 rounded-lg bg-card px-3.5",
           size === "compact" &&
-            "flex h-12.5 items-center gap-2 rounded-md bg-background px-2.5 text-xs",
+            "flex h-12.5 items-center gap-2 rounded-md bg-background px-3 text-xs",
           rectangle && "flex h-62.5 flex-col gap-2 rounded-lg bg-background p-4 text-center",
           className,
         )}

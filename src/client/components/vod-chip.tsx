@@ -31,7 +31,7 @@ function VodChip({
       )}
       {...props}
     >
-      <PovAvatar name={name} wowClass={wowClass} className="size-5" />
+      <PovAvatar name={name} wowClass={wowClass} className="data-[size=sm]:size-5" />
       {name}
       {offset && <span className="font-mono text-[11px] text-muted-foreground">{offset}</span>}
     </button>
