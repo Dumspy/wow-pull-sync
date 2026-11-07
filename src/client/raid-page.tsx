@@ -9,7 +9,7 @@ import { Dot } from "./components/dot";
 import { OverlayLabel } from "./components/overlay-label";
 import { StatChip } from "./components/stat-chip";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
-import { VodChip } from "./components/vod-chip";
+import { AddVodChip, VodChip } from "./components/vod-chip";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Kbd } from "./components/ui/kbd";
@@ -34,6 +34,7 @@ export function RaidPage({
   initialOffsetText,
   onSelectPull,
   onReplaceSearch,
+  onAddVod,
   onAnotherRaid,
 }: {
   report: ReportResponse;
@@ -41,6 +42,8 @@ export function RaidPage({
   initialOffsetText: string;
   onSelectPull: (fightId: number, seconds: number | null) => void;
   onReplaceSearch: (search: RaidSearch) => void;
+  /** Opens the Add VOD page; `replace` is the index of an expired VOD to swap out. */
+  onAddVod: (replace: number | null) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
   const vods = useRaidVods(search.vods, report.players);
@@ -282,6 +285,7 @@ export function RaidPage({
                 />
               );
             })}
+            <AddVodChip onClick={() => onAddVod(null)} />
           </div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
             {source ? (
@@ -294,7 +298,7 @@ export function RaidPage({
                 />
               </div>
             ) : (
-              <VodUnavailable vod={shown} />
+              <VodUnavailable vod={shown} onReplace={() => onAddVod(shown.index)} />
             )}
             {source && activePull && pullStart == null ? (
               <Empty className="absolute inset-0 border-0 bg-black">
@@ -409,7 +413,7 @@ function seekSeconds(pull: Pull, source: VideoSource | null): number | null {
 }
 
 /** The player area when the VOD on screen can't play: still loading, gone, or failed. */
-function VodUnavailable({ vod }: { vod: RaidVod }) {
+function VodUnavailable({ vod, onReplace }: { vod: RaidVod; onReplace: () => void }) {
   if (vod.status === "loading") {
     return (
       <Empty className="absolute inset-0 border-0">
@@ -429,6 +433,9 @@ function VodUnavailable({ vod }: { vod: RaidVod }) {
             {vod.platformLabel} removed this recording. The log and timeline still work.
           </EmptyDescription>
         </EmptyHeader>
+        <Button type="button" size="sm" variant="outline" onClick={onReplace}>
+          Replace link
+        </Button>
       </Empty>
     );
   }

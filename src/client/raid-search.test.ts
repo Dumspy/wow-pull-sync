@@ -6,6 +6,7 @@ import {
   raidViewSearchSchema,
   searchForPull,
   searchWithOffset,
+  searchWithVod,
   viewSearch,
 } from "./raid-search";
 
@@ -61,5 +62,22 @@ describe("raid search", () => {
       spells: [5],
     });
     expect(viewSearch(search)).toEqual({ vods: [YOUTUBE, TWITCH], pov: 1 });
+  });
+
+  it("adds a VOD at the end, or in place of an expired one, and shows it", () => {
+    const added = { platform: "twitch", id: "2916000000", by: 12 } as const;
+
+    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0 }, added, undefined)).toEqual({
+      vods: [YOUTUBE, TWITCH, added],
+      pov: 2,
+    });
+    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0 }, added, 1)).toEqual({
+      vods: [YOUTUBE, added],
+      pov: 1,
+    });
+    expect(searchWithVod({ vods: [YOUTUBE] }, added, 5)).toEqual({
+      vods: [YOUTUBE, added],
+      pov: 1,
+    });
   });
 });

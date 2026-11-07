@@ -16,12 +16,17 @@ import { PastePage } from "./paste-page";
 import { RaidPage } from "./raid-page";
 import { reportQueryOptions, vodQueryOptions } from "./raid-queries";
 import { vodRef } from "./raid-vods";
+import { AddVodPage } from "./add-vod-page";
 import {
+  addVodSearchSchema,
   RaidLinkError,
   raidSearchSchema,
   raidViewSearchSchema,
   searchForPull,
+  searchWithVod,
+  viewSearch,
   type RaidSearch,
+  type SearchVod,
 } from "./raid-search";
 import { BossProgressPage, OverviewPage } from "./raid-views";
 import { LoadingRaid, NotFoundPage, RouteFailure } from "./route-status";
@@ -116,6 +121,16 @@ function RaidRoute() {
     [navigate],
   );
 
+  const onAddVod = useCallback(
+    (replace: number | null) => {
+      void navigate({
+        to: "/raid/$reportCode/add-vod",
+        search: (prev) => (replace == null ? viewSearch(prev) : { ...viewSearch(prev), replace }),
+      });
+    },
+    [navigate],
+  );
+
   const onAnotherRaid = useCallback(
     (offsetText: string) => {
       void navigate({ to: "/", state: { returnToRaid: true, offsetText } });
@@ -130,6 +145,7 @@ function RaidRoute() {
       initialOffsetText={initialOffsetText}
       onSelectPull={onSelectPull}
       onReplaceSearch={onReplaceSearch}
+      onAddVod={onAddVod}
       onAnotherRaid={onAnotherRaid}
     />
   );
@@ -195,6 +211,40 @@ function BossRoute() {
   return <BossProgressPage report={report} search={search} encounterId={encounterId} />;
 }
 
+const addVodRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/raid/$reportCode/add-vod",
+  validateSearch: addVodSearchSchema,
+  params: reportParams,
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(reportQueryOptions(params.reportCode)),
+  pendingComponent: LoadingRaid,
+  pendingMs: 0,
+  pendingMinMs: 0,
+  errorComponent: RouteFailure,
+  component: AddVodRoute,
+});
+
+function AddVodRoute() {
+  const search = addVodRoute.useSearch();
+  const { reportCode } = addVodRoute.useParams();
+  const navigate = addVodRoute.useNavigate();
+  const { data: report } = useSuspenseQuery(reportQueryOptions(reportCode));
+
+  const onSave = useCallback(
+    (vod: SearchVod) => {
+      void navigate({
+        to: "/raid/$reportCode",
+        params: { reportCode },
+        search: searchWithVod(search, vod, search.replace),
+      });
+    },
+    [navigate, reportCode, search],
+  );
+
+  return <AddVodPage report={report} search={search} onSave={onSave} />;
+}
+
 const designRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/design",
@@ -206,5 +256,6 @@ export const routeTree = rootRoute.addChildren([
   raidRoute,
   overviewRoute,
   bossRoute,
+  addVodRoute,
   designRoute,
 ]);

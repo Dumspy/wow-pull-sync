@@ -130,3 +130,27 @@ export function searchWithSpells(current: RaidSearch, spells: number[]): RaidSea
 
   return spells.length === 0 ? rest : { ...rest, spells };
 }
+
+/** Search params for the Add VOD page. `replace` is the index of an expired VOD to swap out. */
+export const addVodSearchSchema = z.object({
+  ...vodParams,
+  replace: z.number().int().min(0).optional(),
+});
+
+export type AddVodSearch = z.output<typeof addVodSearchSchema>;
+
+/**
+ * The raid's VODs with `vod` added at the end, or in place of the one at `replace`, and that
+ * VOD on screen.
+ */
+export function searchWithVod(
+  current: RaidViewSearch,
+  vod: SearchVod,
+  replace: number | undefined,
+): RaidViewSearch {
+  if (replace != null && replace < current.vods.length) {
+    return { vods: current.vods.map((item, at) => (at === replace ? vod : item)), pov: replace };
+  }
+
+  return { vods: [...current.vods, vod], pov: current.vods.length };
+}

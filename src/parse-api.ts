@@ -3,6 +3,7 @@ import { z } from "zod";
 import { parseIso8601Duration, parseTwitchDuration } from "./duration";
 import { HttpError } from "./http-error";
 import { jsonBody, type Json } from "./json";
+import { vodErrorMessage } from "./vod-errors";
 
 const fightSchema = z.object({
   id: z.number(),
@@ -221,12 +222,10 @@ export function readEvents(body: Json): WclEvent[] {
 
 /** Messages for each `VodErrorReason`, worded as on the Add VOD design. */
 export const VOD_ERRORS = {
-  unsupported: "This link is not supported. pull-sync works with YouTube and Twitch recordings.",
-  "not-found":
-    "We couldn't find this video. Check the link, and that the video is public or unlisted.",
-  live: "This stream is still live. Add it once the stream has ended and the recording is available.",
-  "not-stream":
-    "This isn't a recorded live stream. pull-sync needs a stream recording to line up with the log. Uploads and highlights have no start time.",
+  unsupported: vodErrorMessage("unsupported"),
+  "not-found": vodErrorMessage("not-found"),
+  live: vodErrorMessage("live"),
+  "not-stream": vodErrorMessage("not-stream"),
 } as const;
 
 export function readYoutubeVideo(body: Json): VodSummary {
