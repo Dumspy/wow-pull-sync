@@ -15,7 +15,14 @@ import { formatClock, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
-import { searchForPull, searchWithOffset, searchWithSpells, type RaidSearch } from "./raid-search";
+import {
+  activeVod,
+  searchForPull,
+  searchWithOffset,
+  searchWithSpells,
+  viewSearch,
+  type RaidSearch,
+} from "./raid-search";
 import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
@@ -35,8 +42,10 @@ export function RaidPage({
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
+  const shown = activeVod(search);
+
   const [offsetText, setOffsetText] = useState(
-    search.offset != null ? String(search.offset) : initialOffsetText,
+    shown.offset != null ? String(shown.offset) : initialOffsetText,
   );
 
   const [player, setPlayer] = useState<PlayerController | null>(null);
@@ -193,7 +202,7 @@ export function RaidPage({
         <Link
           to="/raid/$reportCode/overview"
           params={{ reportCode: report.reportCode }}
-          search={{ vod: search.vod, offset: search.offset }}
+          search={viewSearch(search)}
           className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
           Overview
@@ -214,12 +223,7 @@ export function RaidPage({
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
             <div className="absolute inset-0">
-              <RaidPlayer
-                videoId={source.id}
-                duration={source.duration}
-                fake={fakePlayer}
-                onController={onController}
-              />
+              <RaidPlayer source={source} fake={fakePlayer} onController={onController} />
             </div>
             {activePull ? (
               <OverlayLabel>

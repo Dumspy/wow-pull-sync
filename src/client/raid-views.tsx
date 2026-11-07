@@ -12,7 +12,7 @@ import { StatStrip, StatTile } from "./components/stat-strip";
 import { buttonVariants } from "./components/ui/button";
 import { formatClock } from "./format";
 import { formatSpan, hpLeft, summarizeBosses, type BossSummary } from "./pull-view";
-import { searchForPull, type RaidViewSearch } from "./raid-search";
+import { activeVod, searchForPull, type RaidViewSearch } from "./raid-search";
 
 function videoSource(vod: VodResponse, offset: number): VideoSource {
   return {
@@ -150,7 +150,7 @@ export function OverviewPage({
   vod: VodResponse;
   search: RaidViewSearch;
 }) {
-  const source = videoSource(vod, search.offset ?? 0);
+  const source = videoSource(vod, activeVod(search).offset ?? 0);
   const bosses = summarizeBosses(report.pulls);
   const kills = report.pulls.filter((pull) => pull.kill).length;
   const totalMs = report.pulls.reduce((sum, pull) => sum + pull.durationMs, 0);
@@ -215,7 +215,7 @@ export function BossProgressPage({
   search: RaidViewSearch;
   encounterId: number;
 }) {
-  const source = videoSource(vod, search.offset ?? 0);
+  const source = videoSource(vod, activeVod(search).offset ?? 0);
   const bosses = summarizeBosses(report.pulls);
   const boss = bosses.find((item) => item.encounterId === encounterId);
 

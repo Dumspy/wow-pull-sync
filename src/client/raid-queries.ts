@@ -4,6 +4,7 @@ import { hc } from "hono/client";
 import type { AppType } from "../api";
 import { reportResponseSchema, vodResponseSchema } from "../contract";
 import type { ReportResponse, VodResponse } from "../types";
+import { vodLink, type VodRef } from "../urls";
 
 const client = hc<AppType>("/api");
 
@@ -18,12 +19,12 @@ export function reportQueryOptions(reportCode: string) {
 }
 
 /** One VOD's start time and length. The offset is applied on the page, so it is not part of the key. */
-export function vodQueryOptions(videoId: string) {
+export function vodQueryOptions(vod: VodRef) {
   return queryOptions({
-    queryKey: ["vod", "youtube", videoId] as const,
+    queryKey: ["vod", vod.platform, vod.id] as const,
     retry: false,
     staleTime: 60_000,
-    queryFn: () => loadVod(videoId),
+    queryFn: () => loadVod(vod),
   });
 }
 
@@ -47,8 +48,8 @@ async function loadReport(reportCode: string): Promise<ReportResponse> {
   return reportResponseSchema.parse(await response.json());
 }
 
-async function loadVod(videoId: string): Promise<VodResponse> {
-  const vodUrl = `https://www.youtube.com/watch?v=${videoId}`;
+async function loadVod(vod: VodRef): Promise<VodResponse> {
+  const vodUrl = vodLink(vod);
 
   let response: Awaited<ReturnType<typeof client.vod.$post>>;
 

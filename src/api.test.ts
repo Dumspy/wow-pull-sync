@@ -45,7 +45,7 @@ describe("POST /api/report and /api/vod", () => {
     expect(report.status).toBe(400);
     expect(await report.json()).toEqual({ error: "Enter a Warcraft Logs report URL." });
     expect(vod.status).toBe(400);
-    expect(await vod.json()).toEqual({ error: "Enter a YouTube VOD URL." });
+    expect(await vod.json()).toEqual({ error: "Enter a YouTube or Twitch VOD URL." });
   });
 
   it("checks the report URL and the VOD URL", async () => {
@@ -57,7 +57,10 @@ describe("POST /api/report and /api/vod", () => {
       error: "That doesn't look like a Warcraft Logs report URL.",
     });
     expect(vod.status).toBe(400);
-    expect(await vod.json()).toEqual({ error: "That doesn't look like a YouTube URL." });
+    expect(await vod.json()).toEqual({
+      error: "This link is not supported. pull-sync works with YouTube and Twitch recordings.",
+      reason: "unsupported",
+    });
   });
 
   it("serves every other path from the asset binding", async () => {
@@ -181,6 +184,34 @@ describe("POST /api/report and /api/vod", () => {
       startedAtMs: Date.parse("2026-10-29T18:38:02Z"),
       durationSeconds: 9495,
     });
+  });
+
+  it("names the reason a YouTube link can't be used", async () => {
+    const vod = (vodUrl: string) =>
+      api.request(
+        "/vod",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ vodUrl }),
+        },
+        { USE_FIXTURES: "true" },
+      );
+
+    const upload = await vod("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+
+    expect(upload.status).toBe(400);
+    expect(await upload.json()).toMatchObject({ reason: "not-stream" });
+  });
+
+  it("recognises a Twitch link but does not load it yet", async () => {
+    const response = await post(
+      "/vod",
+      JSON.stringify({ vodUrl: "https://www.twitch.tv/videos/2914150345" }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Twitch VODs are not supported yet." });
   });
 
   it("asks only for the credentials each endpoint uses", async () => {

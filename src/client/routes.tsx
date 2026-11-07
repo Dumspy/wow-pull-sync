@@ -16,6 +16,7 @@ import { PastePage } from "./paste-page";
 import { RaidPage } from "./raid-page";
 import { reportQueryOptions, vodQueryOptions } from "./raid-queries";
 import {
+  activeVod,
   RaidLinkError,
   raidSearchSchema,
   raidViewSearchSchema,
@@ -24,6 +25,7 @@ import {
 } from "./raid-search";
 import { BossProgressPage, OverviewPage } from "./raid-views";
 import { LoadingRaid, NotFoundPage, RouteFailure } from "./route-status";
+import type { VodRef } from "../urls";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -31,15 +33,20 @@ export interface RouterContext {
 
 const reportCodeSchema = z.string().regex(/^[A-Za-z0-9]+$/);
 
+/** Platform and id only, so changing the offset does not reload the VOD. */
+function vodRef(vod: VodRef): VodRef {
+  return { platform: vod.platform, id: vod.id };
+}
+
 /** Loads the report and the VOD side by side; they are separate requests. */
-function loadRaid(queryClient: QueryClient, reportCode: string, vod: string) {
+function loadRaid(queryClient: QueryClient, reportCode: string, vod: VodRef) {
   return Promise.all([
     queryClient.ensureQueryData(reportQueryOptions(reportCode)),
     queryClient.ensureQueryData(vodQueryOptions(vod)),
   ]);
 }
 
-function useRaid(reportCode: string, vod: string) {
+function useRaid(reportCode: string, vod: VodRef) {
   const [report, video] = useSuspenseQueries({
     queries: [reportQueryOptions(reportCode), vodQueryOptions(vod)],
   });
@@ -84,7 +91,7 @@ const raidRoute = createRoute({
   path: "/raid/$reportCode",
   validateSearch: raidSearchSchema,
   params: reportParams,
-  loaderDeps: ({ search }) => ({ vod: search.vod }),
+  loaderDeps: ({ search }) => ({ vod: vodRef(activeVod(search)) }),
   loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
@@ -102,7 +109,7 @@ function RaidRoute() {
     select: (state) => state.location.state.offsetText ?? "0",
   });
 
-  const { report, vod } = useRaid(reportCode, search.vod);
+  const { report, vod } = useRaid(reportCode, vodRef(activeVod(search)));
 
   const onSelectPull = useCallback(
     (fightId: number, seconds: number | null) => {
@@ -143,7 +150,7 @@ const overviewRoute = createRoute({
   path: "/raid/$reportCode/overview",
   validateSearch: raidViewSearchSchema,
   params: reportParams,
-  loaderDeps: ({ search }) => ({ vod: search.vod }),
+  loaderDeps: ({ search }) => ({ vod: vodRef(activeVod(search)) }),
   loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
@@ -156,7 +163,7 @@ function OverviewRoute() {
   const search = overviewRoute.useSearch();
   const { reportCode } = overviewRoute.useParams();
 
-  const { report, vod } = useRaid(reportCode, search.vod);
+  const { report, vod } = useRaid(reportCode, vodRef(activeVod(search)));
 
   return <OverviewPage report={report} vod={vod} search={search} />;
 }
@@ -178,7 +185,7 @@ const bossRoute = createRoute({
       encounterId: String(params.encounterId),
     }),
   },
-  loaderDeps: ({ search }) => ({ vod: search.vod }),
+  loaderDeps: ({ search }) => ({ vod: vodRef(activeVod(search)) }),
   loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
@@ -191,7 +198,7 @@ function BossRoute() {
   const search = bossRoute.useSearch();
   const { reportCode, encounterId } = bossRoute.useParams();
 
-  const { report, vod } = useRaid(reportCode, search.vod);
+  const { report, vod } = useRaid(reportCode, vodRef(activeVod(search)));
 
   return <BossProgressPage report={report} vod={vod} search={search} encounterId={encounterId} />;
 }

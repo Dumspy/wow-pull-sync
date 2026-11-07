@@ -5,13 +5,14 @@ import { HTTPException } from "hono/http-exception";
 import { captureException } from "@sentry/cloudflare";
 
 import {
+  type ErrorResponse,
   reportRequestSchema,
   reportResponseSchema,
   vodRequestSchema,
   vodResponseSchema,
 } from "./contract";
 import { HttpError } from "./http-error";
-import { readReport, readYoutubeVideo } from "./parse-api";
+import { readReport, readYoutubeVideo, VOD_ERRORS } from "./parse-api";
 import { buildPulls } from "./pulls";
 import {
   buildEncounterPhases,
@@ -20,7 +21,7 @@ import {
   withoutHiddenSpells,
 } from "./report-meta";
 import { loadReportEvents } from "./report-events";
-import { parseReportCode, parseVideoId } from "./urls";
+import { parseReportCode, parseVodLink } from "./urls";
 import { fetchReportBody } from "./wcl";
 import { fetchYoutubeBody } from "./youtube";
 
@@ -51,11 +52,15 @@ function bodyMessage(
 function failure(error: HttpError | null, fallback: string) {
   if (!error) return { body: { error: fallback }, status: 500 as const };
 
-  if (error.status === 400) return { body: { error: error.message }, status: 400 as const };
+  const body: ErrorResponse = error.reason
+    ? { error: error.message, reason: error.reason }
+    : { error: error.message };
 
-  if (error.status === 404) return { body: { error: error.message }, status: 404 as const };
+  if (error.status === 400) return { body, status: 400 as const };
 
-  return { body: { error: error.message }, status: 502 as const };
+  if (error.status === 404) return { body, status: 404 as const };
+
+  return { body, status: 502 as const };
 }
 
 const reportFailure = "Something went wrong loading that raid.";
@@ -138,15 +143,23 @@ export const api = new Hono<{ Bindings: Env }>()
       if (result.success) return;
 
       return c.json(
-        { error: bodyMessage(result.error, "vodUrl", "Enter a YouTube VOD URL.") },
+        { error: bodyMessage(result.error, "vodUrl", "Enter a YouTube or Twitch VOD URL.") },
         400,
       );
     }),
     async (c) => {
       const request = c.req.valid("json");
-      const videoId = parseVideoId(request.vodUrl);
+      const link = parseVodLink(request.vodUrl);
 
-      if (!videoId) return c.json({ error: "That doesn't look like a YouTube URL." }, 400);
+      if (!link) {
+        return c.json({ error: VOD_ERRORS.unsupported, reason: "unsupported" as const }, 400);
+      }
+
+      if (link.platform === "twitch") {
+        return c.json({ error: "Twitch VODs are not supported yet." }, 400);
+      }
+
+      const videoId = link.id;
 
       const useFixtures = c.env.USE_FIXTURES === "true";
 

@@ -6,6 +6,7 @@ export type {
   Player,
   Pull,
   ReportResponse,
+  VodErrorReason,
   VodPlatform,
   VodResponse,
   WowClass,

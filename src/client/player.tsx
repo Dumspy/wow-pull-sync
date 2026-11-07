@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import type { Json } from "../json";
+import type { VideoSource } from "../source";
 import { track } from "./analytics";
 import { formatClock, formatSeconds } from "./format";
 
@@ -70,21 +71,27 @@ export function devFakePlayer(): boolean {
 }
 
 export function RaidPlayer({
-  videoId,
-  duration,
+  source,
   fake,
   onController,
 }: {
-  videoId: string;
-  duration: number;
+  source: VideoSource;
   fake: boolean;
   onController: (player: PlayerController | null) => void;
 }) {
   if (fake) {
-    return <FakePlayer duration={duration} onController={onController} />;
+    return <FakePlayer duration={source.duration} onController={onController} />;
   }
 
-  return <YoutubePlayer videoId={videoId} onController={onController} />;
+  if (source.kind === "twitch") {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-sm text-white/70">
+        Twitch playback is not available yet.
+      </div>
+    );
+  }
+
+  return <YoutubePlayer videoId={source.id} onController={onController} />;
 }
 
 function YoutubePlayer({

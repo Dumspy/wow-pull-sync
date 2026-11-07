@@ -8,6 +8,7 @@ import {
   fixtureYoutubeBody,
 } from "./fixtures";
 import { HttpError } from "./http-error";
+import { jsonBody } from "./json";
 import { matchPullToVod } from "./match";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
@@ -159,7 +160,7 @@ describe("external response errors", () => {
   });
 
   it("rejects an empty YouTube list, a video with no length, and a bad start time", () => {
-    expect(() => readYoutubeVideo({ items: [] })).toThrow("No YouTube video found for that link.");
+    expect(() => readYoutubeVideo({ items: [] })).toThrow("We couldn't find this video.");
 
     expect(() =>
       readYoutubeVideo({
@@ -200,7 +201,10 @@ describe("youtube errors", () => {
 
       if (!(error instanceof HttpError)) return;
 
-      expect(error.message).toBe("That video is not a past live stream.");
+      expect(error.reason).toBe("not-stream");
+      expect(error.message).toBe(
+        "This isn't a recorded live stream. pull-sync needs a stream recording to line up with the log. Uploads and highlights have no start time.",
+      );
     }
   });
 
@@ -209,6 +213,25 @@ describe("youtube errors", () => {
     const parsed = z.object({ items: z.array(z.object({ id: z.string() })) }).parse(body);
 
     expect(parsed.items[0]?.id).toBe("abcdefghijk");
-    expect(() => readYoutubeVideo(body)).toThrow("That video is not a past live stream.");
+    expect(() => readYoutubeVideo(body)).toThrow("This isn't a recorded live stream.");
+  });
+
+  it("says a stream that is still running, or not started, is still live", () => {
+    const running = { actualStartTime: "2026-10-29T18:38:02Z" };
+    const scheduled = { scheduledStartTime: "2026-10-29T18:38:02Z" };
+
+    for (const liveStreamingDetails of [running, scheduled]) {
+      try {
+        readYoutubeVideo(jsonBody.parse({ items: [{ id: "BLJBhzLNt8w", liveStreamingDetails }] }));
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpError);
+
+        if (!(error instanceof HttpError)) return;
+
+        expect(error.status).toBe(400);
+        expect(error.reason).toBe("live");
+      }
+    }
   });
 });
