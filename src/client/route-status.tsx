@@ -34,6 +34,10 @@ export function LoadingRaid() {
       </AppHeader>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">VODs</span>
+            <Skeleton className="h-7 w-44 rounded-sm" />
+          </div>
           <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden rounded-lg border bg-black">
             <p className="animate-pulse text-xs text-muted-foreground">
               Fetching the report and VOD…
