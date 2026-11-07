@@ -24,8 +24,8 @@ export function PastePage() {
   });
 
   const storedOffset = useRouterState({ select: (state) => state.location.state.offsetText });
-  const [reportUrl, setReportUrl] = useState("");
-  const [vodUrl, setVodUrl] = useState("");
+  const [reportUrl, setReportUrl] = useState(import.meta.env.VITE_PREFILL_REPORT_URL?.trim() ?? "");
+  const [vodUrl, setVodUrl] = useState(import.meta.env.VITE_PREFILL_VOD_URL?.trim() ?? "");
   const [offsetText, setOffsetText] = useState(storedOffset ?? "0");
   const [error, setError] = useState<string | null>(null);
 

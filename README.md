@@ -42,6 +42,8 @@ Scripts, as defined in `package.json`:
 
 `npm run dev` runs the Worker and the page together on the Workers runtime. `npm run lint` checks the TypeScript. `npm run fmt` formats it. `npm test` is the timestamp unit tests.
 
+To prefill the paste form, set `VITE_PREFILL_REPORT_URL` and `VITE_PREFILL_VOD_URL` as build variables. They are inlined at build time. Leave them unset on production builds. Either one can be set alone.
+
 With `USE_FIXTURES=true`, these two links load the recorded night. Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32.
 
 - https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9
