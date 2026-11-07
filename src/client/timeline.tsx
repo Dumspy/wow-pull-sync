@@ -280,8 +280,9 @@ function PullLanes({
             icon={<SpellIcon icon={spell.icon} />}
             swatchClassName={LANE_TONES[index % LANE_TONES.length].swatch}
             on
+            removable
             onClick={() => toggle(spell)}
-            title="Remove from the timeline"
+            title={`Remove ${spell.name} from the timeline`}
           />
         ))}
         {catalog.length > 0 ? (

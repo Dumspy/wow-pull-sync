@@ -1,6 +1,7 @@
 import { specFromIcon, wowClassFor } from "./classes";
+import { HIDDEN_SPELL_IDS, HIDDEN_SPELL_NAMES } from "./hidden-spells";
 import type { Ability, EncounterPhases, Player } from "./contract";
-import type { ReportSummary } from "./parse-api";
+import type { ReportSummary, WclEvent } from "./parse-api";
 
 export function buildPlayers(report: ReportSummary): Player[] {
   const actors = report.masterData?.actors ?? [];
@@ -46,4 +47,19 @@ export function buildAbilities(report: ReportSummary, spellIds: Iterable<number>
       name: known.get(id)?.name ?? `Spell ${id}`,
       icon: known.get(id)?.icon ?? null,
     }));
+}
+
+/** The casts without the spells on the hidden list. */
+export function withoutHiddenSpells(report: ReportSummary, casts: WclEvent[]): WclEvent[] {
+  const names = new Map(
+    (report.masterData?.abilities ?? []).map((ability) => [ability.gameID, ability.name]),
+  );
+
+  return casts.filter((cast) => {
+    if (HIDDEN_SPELL_IDS.has(cast.abilityGameID)) return false;
+
+    const name = names.get(cast.abilityGameID)?.toLowerCase();
+
+    return name == null || !HIDDEN_SPELL_NAMES.has(name);
+  });
 }

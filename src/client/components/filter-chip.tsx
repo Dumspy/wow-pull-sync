@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -9,11 +10,14 @@ function FilterChip({
   swatchClassName,
   on = false,
   icon,
+  removable = false,
   ...props
 }: Omit<ComponentProps<"button">, "children"> & {
   label: string;
   /** Shown instead of the colour swatch. */
   icon?: ReactNode;
+  /** Shows a × so it reads as something you click to remove. */
+  removable?: boolean;
   swatchClassName: string;
   on?: boolean;
 }) {
@@ -37,6 +41,7 @@ function FilterChip({
         />
       )}
       {label}
+      {removable && <X aria-hidden="true" className="size-3 text-muted-foreground" />}
     </button>
   );
 }

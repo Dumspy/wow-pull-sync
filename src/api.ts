@@ -6,7 +6,12 @@ import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
-import { buildEncounterPhases, buildAbilities, buildPlayers } from "./report-meta";
+import {
+  buildEncounterPhases,
+  buildAbilities,
+  buildPlayers,
+  withoutHiddenSpells,
+} from "./report-meta";
 import { loadReportEvents } from "./report-events";
 import { parseReportCode, parseVideoId } from "./urls";
 import { fetchReportBody } from "./wcl";
@@ -77,7 +82,10 @@ export const api = new Hono<{ Bindings: Env }>().post(
 
       const events = await loadReportEvents(code, clientId, clientSecret, useFixtures, report);
 
-      const pulls = buildPulls(report, vod, request.offsetSeconds, events);
+      const pulls = buildPulls(report, vod, request.offsetSeconds, {
+        ...events,
+        casts: withoutHiddenSpells(report, events.casts),
+      });
 
       const response = pullSyncResponseSchema.parse({
         videoId: vod.videoId || videoId,
