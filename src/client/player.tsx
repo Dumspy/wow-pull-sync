@@ -278,7 +278,12 @@ function YoutubePlayer({
     return () => {
       cancelled = true;
       onControllerRef.current(null);
-      player?.destroy();
+      // The page drops this controller on its next render, so until then every call must be a
+      // no-op: a destroyed YouTube player throws on any method.
+      ready = false;
+      const destroyed = player;
+      player = null;
+      destroyed?.destroy();
     };
   }, [videoId]);
 
@@ -303,7 +308,8 @@ function TwitchVideoPlayer({
     let cancelled = false;
     let player: TwitchPlayer | null = null;
     let ready = false;
-    // Twitch ignores seek() until playback has started, and can't autoplay without a click.
+    // Twitch ignores seek() until playback has started. It also won't start without a click
+    // while anything covers the embed, so captions sit above the player, never on it.
     let started = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
@@ -413,6 +419,8 @@ function TwitchVideoPlayer({
     return () => {
       cancelled = true;
       onControllerRef.current(null);
+      ready = false;
+      player = null;
       // The embed has no destroy call; removing its iframe stops playback.
       host.replaceChildren();
     };
