@@ -1,9 +1,16 @@
-import { Link, SearchParamError } from "@tanstack/react-router";
+import { Link, SearchParamError, useLocation } from "@tanstack/react-router";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { AppBrand, AppHeader } from "./components/app-header";
 import { buttonVariants } from "./components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "./components/ui/empty";
 import { Skeleton } from "./components/ui/skeleton";
 import { RaidLinkError, raidLinkError } from "./raid-search";
 
@@ -58,6 +65,43 @@ export function RouteFailure({ error }: ErrorComponentProps) {
             Load another raid
           </Link>
         </div>
+      </main>
+    </div>
+  );
+}
+
+export function NotFoundPage() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+
+  return (
+    <div className="flex min-h-svh flex-col bg-background">
+      <AppHeader>
+        <AppBrand />
+      </AppHeader>
+      <main className="grid flex-1 place-items-center px-4 py-10">
+        <Empty className="flex-none border-0">
+          <p
+            aria-hidden="true"
+            className="font-mono text-7xl font-semibold tracking-tighter text-border-strong"
+          >
+            404
+          </p>
+          <EmptyHeader className="max-w-md">
+            <EmptyTitle className="text-lg">Page not found</EmptyTitle>
+            <EmptyDescription>
+              We couldn&apos;t find anything at
+              <code className="mx-auto my-2 block w-fit max-w-full rounded bg-muted px-2 py-1 font-mono text-xs break-all text-foreground">
+                {pathname}
+              </code>
+              The link may be mistyped or out of date.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Link to="/" className={buttonVariants({ size: "lg" })}>
+              Load a raid
+            </Link>
+          </EmptyContent>
+        </Empty>
       </main>
     </div>
   );
