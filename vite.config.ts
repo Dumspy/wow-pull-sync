@@ -8,7 +8,6 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
 const commit = process.env.WORKERS_CI_COMMIT_SHA?.trim() ?? "";
-const upload = sentryUploadEnabled();
 
 export default defineConfig({
   define: {
@@ -18,32 +17,10 @@ export default defineConfig({
   build: {
     sourcemap: "hidden",
   },
-  plugins: [
-    react(),
-    tailwindcss(),
-    cloudflare(),
-    ...sentryVitePlugin({
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-      url: process.env.SENTRY_URL ?? "https://de.sentry.io",
-      telemetry: false,
-      silent: !upload,
-      release: {
-        name: commit || undefined,
-        inject: commit !== "",
-        create: upload,
-        finalize: upload,
-      },
-      sourcemaps: upload
-        ? { filesToDeleteAfterUpload: ["./dist/**/*.map"] }
-        : { disable: "disable-upload" },
-    }),
-    stripSourceMaps(),
-  ],
+  plugins: [react(), tailwindcss(), cloudflare(), ...sentryVitePlugins("./dist/**/*.map")],
 });
 
-function sentryUploadEnabled(): boolean {
+export function sentryUploadEnabled(): boolean {
   return Boolean(
     process.env.SENTRY_AUTH_TOKEN?.trim() &&
     process.env.SENTRY_ORG?.trim() &&
@@ -51,16 +28,52 @@ function sentryUploadEnabled(): boolean {
   );
 }
 
+/**
+ * Rollup starts every `writeBundle` hook at once. Sentry's hook awaits release
+ * creation before it reads `.map` files, so a parallel delete removes them
+ * first and the upload ships JavaScript without maps.
+ * When the token, org, and project are set, Sentry deletes the maps itself
+ * after that read (`filesToDeleteAfterUpload`). Otherwise this plugin is
+ * registered with `sequential: true`, which runs after Sentry's hook.
+ */
+export function sentryVitePlugins(mapGlob: string): Plugin[] {
+  const upload = sentryUploadEnabled();
+  const commit = process.env.WORKERS_CI_COMMIT_SHA?.trim() ?? "";
+
+  const plugins: Plugin[] = sentryVitePlugin({
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    url: process.env.SENTRY_URL ?? "https://de.sentry.io",
+    telemetry: false,
+    silent: !upload,
+    release: {
+      name: commit || undefined,
+      inject: commit !== "",
+      create: upload,
+      finalize: upload,
+    },
+    sourcemaps: upload ? { filesToDeleteAfterUpload: [mapGlob] } : { disable: "disable-upload" },
+  });
+
+  if (!upload) plugins.push(stripSourceMaps());
+
+  return plugins;
+}
+
 function stripSourceMaps(): Plugin {
   return {
     name: "strip-source-maps",
     apply: "build",
     enforce: "post",
-    writeBundle(options) {
-      if (!options.dir) return;
-      const removed = removeMapFiles(options.dir);
+    writeBundle: {
+      sequential: true,
+      handler(options) {
+        if (!options.dir) return;
+        const removed = removeMapFiles(options.dir);
 
-      if (removed > 0) console.info(`Removed ${removed} source maps from ${options.dir}`);
+        if (removed > 0) console.info(`Removed ${removed} source maps from ${options.dir}`);
+      },
     },
   };
 }
