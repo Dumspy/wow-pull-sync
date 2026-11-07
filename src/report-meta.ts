@@ -1,5 +1,5 @@
 import { specFromIcon, wowClassFor } from "./classes";
-import type { EncounterPhases, Player } from "./contract";
+import type { Ability, EncounterPhases, Player } from "./contract";
 import type { ReportSummary } from "./parse-api";
 
 export function buildPlayers(report: ReportSummary): Player[] {
@@ -31,4 +31,15 @@ export function buildEncounterPhases(report: ReportSummary): EncounterPhases[] {
   }
 
   return result;
+}
+
+/** Names for the spells in `spellIds`, from the report's ability list. Unnamed ones keep the id. */
+export function buildAbilities(report: ReportSummary, spellIds: Iterable<number>): Ability[] {
+  const names = new Map(
+    (report.masterData?.abilities ?? []).map((ability) => [ability.gameID, ability.name]),
+  );
+
+  return [...new Set(spellIds)]
+    .sort((a, b) => a - b)
+    .map((id) => ({ id, name: names.get(id) ?? `Spell ${id}` }));
 }

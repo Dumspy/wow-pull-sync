@@ -1,6 +1,10 @@
 # Phase 1: Review UI
 
-**Status:** Planned
+**Status:** In progress
+
+**Done so far:** the restyled review page, boss-grouped pull list, pull timeline with boss HP, phases, a deaths lane and an "Add events" picker that lists every spell the boss and its adds cast and shows the chosen ones as lanes (kept in the URL, so shareable), clicking an event seeks to it, the offset kept in the URL, the raid overview (`/raid/<report>/overview`) and boss progress (`/raid/<report>/boss/<encounter>`) pages, and the `overview opened` and `boss progress opened` analytics events.
+
+**Still to do:** the picker only covers enemy casts. Player cooldowns, buffs and debuffs, interrupts and dispels are not offered yet.
 
 ## Goal
 

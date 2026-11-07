@@ -1,15 +1,15 @@
-import type { Death, Lane } from "./contract";
+import type { Death } from "./contract";
 import { matchPullToVod } from "./match";
 import type { WclEvent } from "./parse-api";
 import type { Pull, ReportSummary, VodSummary } from "./types";
 
-/** Events for one report: every player death, and the events of each lane that applies. */
+/** Events for one report: every player death, and every enemy cast. */
 export interface ReportEvents {
   deaths: WclEvent[];
-  lanes: { lane: Lane; events: WclEvent[] }[];
+  casts: WclEvent[];
 }
 
-export const NO_EVENTS: ReportEvents = { deaths: [], lanes: [] };
+export const NO_EVENTS: ReportEvents = { deaths: [], casts: [] };
 
 /** Boss pulls only (`encounterID > 0`). Pull numbers restart for each boss. */
 export function buildPulls(
@@ -60,22 +60,16 @@ export function buildPulls(
 
     deaths.sort((a, b) => a.atMs - b.atMs);
 
-    const lanes: Pull["lanes"] = [];
+    const casts: Pull["casts"] = [];
 
-    for (const group of events.lanes) {
-      if (group.lane.encounterId !== fight.encounterID) continue;
+    for (const event of events.casts) {
+      // A cast also logs a `begincast`; count each cast once.
+      if (event.fight !== fight.id || event.type === "begincast") continue;
 
-      const laneEvents: Pull["lanes"][number]["events"] = [];
-
-      for (const event of group.events) {
-        if (event.fight !== fight.id) continue;
-
-        laneEvents.push({ atMs: sinceStart(event.timestamp), spellId: event.abilityGameID });
-      }
-
-      laneEvents.sort((a, b) => a.atMs - b.atMs);
-      lanes.push({ laneId: group.lane.id, events: laneEvents });
+      casts.push({ atMs: sinceStart(event.timestamp), spellId: event.abilityGameID });
     }
+
+    casts.sort((a, b) => a.atMs - b.atMs);
 
     return {
       fightId: fight.id,
@@ -98,7 +92,7 @@ export function buildPulls(
       })),
       playerIds: fight.friendlyPlayers,
       deaths,
-      lanes,
+      casts,
     };
   });
 }

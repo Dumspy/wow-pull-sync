@@ -52,21 +52,6 @@ export const guildSchema = z.object({
 
 export const zoneSchema = z.object({ id: z.number(), name: z.string() });
 
-/**
- * A row on the pull timeline: every cast, buff or debuff of the listed spells in one encounter.
- * Defined in `lanes.ts`. `label` is a spell id until names are wired in.
- */
-export const laneSchema = z.object({
-  id: z.string(),
-  encounterId: z.number(),
-  label: z.string(),
-  dataType: z.enum(["Casts", "Buffs", "Debuffs", "Interrupts", "Dispels"]),
-  hostility: z.enum(["Friendlies", "Enemies"]),
-  spellIds: z.array(z.number()),
-});
-
-export type Lane = z.output<typeof laneSchema>;
-
 /** A phase starting. `atMs` counts from the start of the pull. */
 export const phaseStartSchema = z.object({ phaseId: z.number(), atMs: z.number() });
 
@@ -79,12 +64,13 @@ export const deathSchema = z.object({
 
 export type Death = z.output<typeof deathSchema>;
 
-export const laneEventSchema = z.object({ atMs: z.number(), spellId: z.number() });
+/** An enemy cast. `atMs` counts from the start of the pull. */
+export const castSchema = z.object({ atMs: z.number(), spellId: z.number() });
 
-export const pullLaneSchema = z.object({
-  laneId: z.string(),
-  events: z.array(laneEventSchema),
-});
+/** A spell that shows up in the report's enemy casts. */
+export const abilitySchema = z.object({ id: z.number(), name: z.string() });
+
+export type Ability = z.output<typeof abilitySchema>;
 
 /** One boss pull on the wire. `startedAt` and `endedAt` are wall-clock epoch milliseconds. */
 export const pullSchema = z.object({
@@ -107,7 +93,8 @@ export const pullSchema = z.object({
   /** Roster ids of the players in the pull. */
   playerIds: z.array(z.number()),
   deaths: z.array(deathSchema),
-  lanes: z.array(pullLaneSchema),
+  /** Enemy casts in time order. The page filters these by spell. */
+  casts: z.array(castSchema),
 });
 
 export type Pull = z.output<typeof pullSchema>;
@@ -126,8 +113,8 @@ export const pullSyncResponseSchema = z.object({
   owner: z.string().nullable(),
   players: z.array(playerSchema),
   encounterPhases: z.array(encounterPhasesSchema),
-  /** Lane definitions for the encounters in this report. */
-  lanes: z.array(laneSchema),
+  /** Names for the spell ids in the pulls' casts. */
+  abilities: z.array(abilitySchema),
   pulls: z.array(pullSchema),
 });
 

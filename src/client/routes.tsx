@@ -15,7 +15,14 @@ import { Devtools } from "./devtools";
 import { PastePage } from "./paste-page";
 import { pullsQueryOptions, REQUEST_OFFSET_SECONDS } from "./pulls-query";
 import { RaidPage } from "./raid-page";
-import { RaidLinkError, raidSearchSchema, searchForPull, type RaidSearch } from "./raid-search";
+import {
+  RaidLinkError,
+  raidSearchSchema,
+  raidViewSearchSchema,
+  searchForPull,
+  type RaidSearch,
+} from "./raid-search";
+import { BossProgressPage, OverviewPage } from "./raid-views";
 import { LoadingRaid, RouteFailure } from "./route-status";
 
 export interface RouterContext {
@@ -49,20 +56,22 @@ const indexRoute = createRoute({
   component: PastePage,
 });
 
+const reportParams = {
+  parse: (params: { reportCode: string }) => {
+    const code = reportCodeSchema.safeParse(params.reportCode);
+
+    if (!code.success) throw new RaidLinkError();
+
+    return { reportCode: code.data };
+  },
+  stringify: (params: { reportCode: string }) => ({ reportCode: params.reportCode }),
+};
+
 const raidRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/raid/$reportCode",
   validateSearch: raidSearchSchema,
-  params: {
-    parse: (params) => {
-      const code = reportCodeSchema.safeParse(params.reportCode);
-
-      if (!code.success) throw new RaidLinkError();
-
-      return { reportCode: code.data };
-    },
-    stringify: (params) => ({ reportCode: params.reportCode }),
-  },
+  params: reportParams,
   loaderDeps: ({ search }) => ({ vod: search.vod }),
   loader: ({ context, params, deps }) =>
     context.queryClient.ensureQueryData(
@@ -121,10 +130,81 @@ function RaidRoute() {
   );
 }
 
+const overviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/raid/$reportCode/overview",
+  validateSearch: raidViewSearchSchema,
+  params: reportParams,
+  loaderDeps: ({ search }) => ({ vod: search.vod }),
+  loader: ({ context, params, deps }) =>
+    context.queryClient.ensureQueryData(
+      pullsQueryOptions(params.reportCode, deps.vod, REQUEST_OFFSET_SECONDS),
+    ),
+  pendingComponent: LoadingRaid,
+  pendingMs: 0,
+  pendingMinMs: 0,
+  errorComponent: RouteFailure,
+  component: OverviewRoute,
+});
+
+function OverviewRoute() {
+  const search = overviewRoute.useSearch();
+  const { reportCode } = overviewRoute.useParams();
+
+  const { data } = useSuspenseQuery(
+    pullsQueryOptions(reportCode, search.vod, REQUEST_OFFSET_SECONDS),
+  );
+
+  return <OverviewPage data={data} search={search} />;
+}
+
+const bossRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/raid/$reportCode/boss/$encounterId",
+  validateSearch: raidViewSearchSchema,
+  params: {
+    parse: (params) => ({
+      ...reportParams.parse(params),
+      encounterId: z.coerce.number().int().parse(params.encounterId),
+    }),
+    stringify: (params) => ({
+      reportCode: params.reportCode,
+      encounterId: String(params.encounterId),
+    }),
+  },
+  loaderDeps: ({ search }) => ({ vod: search.vod }),
+  loader: ({ context, params, deps }) =>
+    context.queryClient.ensureQueryData(
+      pullsQueryOptions(params.reportCode, deps.vod, REQUEST_OFFSET_SECONDS),
+    ),
+  pendingComponent: LoadingRaid,
+  pendingMs: 0,
+  pendingMinMs: 0,
+  errorComponent: RouteFailure,
+  component: BossRoute,
+});
+
+function BossRoute() {
+  const search = bossRoute.useSearch();
+  const { reportCode, encounterId } = bossRoute.useParams();
+
+  const { data } = useSuspenseQuery(
+    pullsQueryOptions(reportCode, search.vod, REQUEST_OFFSET_SECONDS),
+  );
+
+  return <BossProgressPage data={data} search={search} encounterId={encounterId} />;
+}
+
 const designRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/design",
   component: DesignGallery,
 });
 
-export const routeTree = rootRoute.addChildren([indexRoute, raidRoute, designRoute]);
+export const routeTree = rootRoute.addChildren([
+  indexRoute,
+  raidRoute,
+  overviewRoute,
+  bossRoute,
+  designRoute,
+]);

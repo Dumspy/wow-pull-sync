@@ -2,7 +2,7 @@ export type {
   Death,
   EncounterPhases,
   ErrorResponse,
-  Lane,
+  Ability,
   Player,
   Pull,
   PullRequest,
