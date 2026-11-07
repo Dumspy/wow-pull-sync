@@ -1,6 +1,8 @@
 # Phase 2: Multiple VODs
 
-**Status:** Planned
+**Status:** Done
+
+**What shipped:** YouTube and Twitch (past broadcast) VODs, several per raid, kept in the page URL. Each VOD has a recorded-by player and its own offset. The VOD bar switches between them at the same moment of the pull (2a), and Side by side shows up to three, kept in sync, with one pane playing sound (2b). The Add VOD page checks the link, guesses the offset from the first pull and lets you check it against later pulls. Expired Twitch VODs show the "VOD expired" pane with Replace link.
 
 ## Goal
 
@@ -83,3 +85,4 @@ Both screens are in the design file [`docs/design/pull-sync-designs.html`](../de
 - Recorded-by is required, so the viewer always knows whose point of view they are watching.
 - VOD setup is kept in the URL until saved raids exist (phase 3). A long URL is fine for now.
 - Any limit on VODs per raid for the free version is left to phase 5.
+- Pane captions (who recorded it, the pull, the Audio / Muted button) sit in a strip above the video, not over it as in the design. Twitch's embed won't start without a click while anything covers it.

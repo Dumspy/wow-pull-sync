@@ -34,7 +34,7 @@ The site runs on Cloudflare Workers and is behind Cloudflare Access for now.
 | -------------------------------------------------- | --------------- | ---------------------------------------------------------------------------- |
 | [0 Foundations](00-foundations.md)                 | Done            | Lint rules and cookieless PostHog analytics.                                 |
 | [1 Review UI](01-review-ui.md)                     | Done            | Replay inspector with pickable event lanes, raid overview and boss progress. |
-| [2 Multiple VODs](02-multi-vod.md)                 | Planned         | Several YouTube and Twitch VODs per raid, each with its own offset.          |
+| [2 Multiple VODs](02-multi-vod.md)                 | Done            | Several YouTube and Twitch VODs per raid, each with its own offset.          |
 | [3 Saved raids](03-saved-raids.md)                 | Planned         | Raids are saved and listed on a home page.                                   |
 | [4 Accounts and guilds](04-accounts-and-guilds.md) | Planned         | Sign-in, Battle.net linking, guilds, members, roles and share links.         |
 | [5 Guild upgrade](05-guild-upgrade.md)             | Planned (later) | Optional paid guild upgrade: more VOD slots, ad-free, longer retention.      |
