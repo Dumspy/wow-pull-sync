@@ -194,7 +194,7 @@ function PullLanes({
   onSpellsChange: (spells: number[]) => void;
   onSeek: (seconds: number) => void;
 }) {
-  const shown = spells.filter((id) => catalog.some((spell) => spell.id === id));
+  const shown = shownSpells(catalog, spells);
   const start = pullToVideoSeconds(pull, source);
   const inVod = pullInSource(pull, source);
   const duration = Math.max(pull.durationMs, 1);
@@ -249,8 +249,12 @@ function PullLanes({
     onSeek(start + ((event.clientX - rect.left) / rect.width) * (duration / 1000));
   }
 
-  function toggle(id: number) {
-    onSpellsChange(spells.includes(id) ? spells.filter((item) => item !== id) : [...spells, id]);
+  function toggle(spell: CatalogSpell) {
+    onSpellsChange(
+      isShown(spell, spells)
+        ? spells.filter((id) => !spell.ids.includes(id))
+        : [...spells, spell.id],
+    );
   }
 
   const result = pull.kill
@@ -269,14 +273,14 @@ function PullLanes({
           </span>
         </span>
         <span className="flex-1" />
-        {shown.map((id, index) => (
+        {shown.map((spell, index) => (
           <FilterChip
-            key={id}
-            label={catalog.find((spell) => spell.id === id)?.name ?? String(id)}
-            icon={<SpellIcon icon={catalog.find((spell) => spell.id === id)?.icon ?? null} />}
+            key={spell.id}
+            label={spell.name}
+            icon={<SpellIcon icon={spell.icon} />}
             swatchClassName={LANE_TONES[index % LANE_TONES.length].swatch}
             on
-            onClick={() => toggle(id)}
+            onClick={() => toggle(spell)}
             title="Remove from the timeline"
           />
         ))}
@@ -351,17 +355,16 @@ function PullLanes({
         ))}
         <Playhead at={playheadAt} />
       </Lane>
-      {shown.map((id, index) => {
-        const spell = catalog.find((item) => item.id === id);
-        const name = spell?.name ?? String(id);
+      {shown.map((spell, index) => {
+        const name = spell.name;
         const tone = LANE_TONES[index % LANE_TONES.length].tone;
 
         return (
           <Lane
-            key={id}
+            key={spell.id}
             label={
               <span className="flex items-center gap-1.5" title={name}>
-                <SpellIcon icon={spell?.icon ?? null} />
+                <SpellIcon icon={spell.icon} />
                 <span className="truncate">{name}</span>
               </span>
             }
@@ -369,7 +372,7 @@ function PullLanes({
             onClick={seekFromClick}
           >
             {pull.casts
-              .filter((cast) => cast.spellId === id)
+              .filter((cast) => spell.ids.includes(cast.spellId))
               .map((cast) => (
                 <LaneMark
                   key={cast.atMs}
@@ -388,23 +391,53 @@ function PullLanes({
   );
 }
 
+/** One entry in the picker. Spells that share a name and icon are one entry; `id` is the lowest of them. */
 interface CatalogSpell {
   id: number;
+  ids: number[];
   name: string;
   icon: string | null;
 }
 
-/** Every enemy spell cast in the given pulls, by name. */
+/** Every enemy spell cast in the given pulls, with spells that share a name and icon merged, by name. */
 function spellCatalog(pulls: Pull[], abilities: Ability[]): CatalogSpell[] {
-  const ids = new Set(pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)));
+  const ids = [...new Set(pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)))].sort(
+    (a, b) => a - b,
+  );
 
-  return [...ids]
-    .map((id) => {
-      const ability = abilities.find((item) => item.id === id);
+  const byName = new Map<string, CatalogSpell>();
 
-      return { id, name: ability?.name ?? `Spell ${id}`, icon: ability?.icon ?? null };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+  for (const id of ids) {
+    const ability = abilities.find((item) => item.id === id);
+    const name = ability?.name ?? `Spell ${id}`;
+    const key = `${name}|${ability?.icon ?? ""}`;
+    const existing = byName.get(key);
+
+    if (existing) {
+      existing.ids.push(id);
+    } else {
+      byName.set(key, { id, ids: [id], name, icon: ability?.icon ?? null });
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function isShown(spell: CatalogSpell, spells: number[]): boolean {
+  return spell.ids.some((id) => spells.includes(id));
+}
+
+/** The picked entries, in the order they were picked. */
+function shownSpells(catalog: CatalogSpell[], spells: number[]): CatalogSpell[] {
+  const shown: CatalogSpell[] = [];
+
+  for (const id of spells) {
+    const spell = catalog.find((item) => item.ids.includes(id));
+
+    if (spell && !shown.includes(spell)) shown.push(spell);
+  }
+
+  return shown;
 }
 
 function SpellPicker({
@@ -414,7 +447,7 @@ function SpellPicker({
 }: {
   catalog: CatalogSpell[];
   selected: number[];
-  onToggle: (id: number) => void;
+  onToggle: (spell: CatalogSpell) => void;
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
@@ -446,8 +479,8 @@ function SpellPicker({
             <button
               key={spell.id}
               type="button"
-              aria-pressed={selected.includes(spell.id)}
-              onClick={() => onToggle(spell.id)}
+              aria-pressed={isShown(spell, selected)}
+              onClick={() => onToggle(spell)}
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent aria-pressed:bg-accent"
             >
               <SpellIcon icon={spell.icon} />
