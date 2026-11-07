@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
 import type { Pull, PullSyncResponse } from "../types";
@@ -7,7 +7,7 @@ import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { BossSection } from "./components/boss-section";
 import { PullHpChart } from "./components/pull-hp-chart";
-import { PullRow } from "./components/pull-row";
+import { PullRow, PullRowHeader } from "./components/pull-row";
 import { StatStrip, StatTile } from "./components/stat-strip";
 import { buttonVariants } from "./components/ui/button";
 import { formatClock } from "./format";
@@ -69,7 +69,45 @@ function bossStats(boss: BossSummary): string {
   return `${boss.kills} kill · ${boss.wipes} wipes · ${formatSpan(boss.timeMs)}${best}`;
 }
 
+/** Pulls shown on the overview before "Show all". */
+const COLLAPSED_PULLS = 6;
+
 function PullRows({
+  pulls,
+  data,
+  search,
+  source,
+  collapsible = false,
+}: {
+  pulls: Pull[];
+  data: PullSyncResponse;
+  search: RaidViewSearch;
+  source: VideoSource;
+  /** Cut a long list to the first few rows with a button to show the rest. */
+  collapsible?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const cut = collapsible && !expanded && pulls.length > COLLAPSED_PULLS;
+  const visible = cut ? pulls.slice(0, COLLAPSED_PULLS) : pulls;
+
+  return (
+    <>
+      <PullRowHeader />
+      <PullRowList pulls={visible} data={data} search={search} source={source} />
+      {collapsible && pulls.length > COLLAPSED_PULLS ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="h-9 w-full border-t text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {expanded ? "Show fewer pulls" : `Show all ${pulls.length} pulls`}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function PullRowList({
   pulls,
   data,
   search,
@@ -87,7 +125,7 @@ function PullRows({
       kill={pull.kill}
       hp={hpLeft(pull)}
       duration={formatClock(pull.durationMs / 1000)}
-      start={pullInSource(pull, source) ? formatClock(pullToVideoSeconds(pull, source)) : "no VOD"}
+      className={pullInSource(pull, source) ? undefined : "opacity-45"}
       render={
         <Link
           to="/raid/$reportCode"
@@ -129,6 +167,7 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
             key={boss.encounterId}
             name={boss.name}
             stats={bossStats(boss)}
+            bodyClassName="max-h-none"
             action={
               <Link
                 to="/raid/$reportCode/boss/$encounterId"
@@ -140,7 +179,7 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
               </Link>
             }
           >
-            <PullRows pulls={boss.pulls} data={data} search={search} source={source} />
+            <PullRows pulls={boss.pulls} data={data} search={search} source={source} collapsible />
           </BossSection>
         ))}
       </main>
@@ -217,10 +256,9 @@ export function BossProgressPage({
           <StatTile label="Pulls" value={boss.pulls.length} />
           <StatTile label="Kills" value={boss.kills} valueClassName="text-success" />
           <StatTile label="Wipes" value={boss.wipes} />
-          <StatTile
-            label="Best wipe"
-            value={boss.bestWipeHp == null ? "–" : `${boss.bestWipeHp}%`}
-          />
+          {boss.kills === 0 && boss.bestWipeHp != null ? (
+            <StatTile label="Best wipe" value={`${boss.bestWipeHp}%`} />
+          ) : null}
           <StatTile label="Time" value={formatSpan(boss.timeMs)} />
         </StatStrip>
         <div className="rounded-lg border bg-card p-4">
@@ -229,7 +267,7 @@ export function BossProgressPage({
             best={boss.kills === 0 ? (boss.bestWipeHp ?? undefined) : undefined}
           />
         </div>
-        <BossSection name={boss.name} stats={bossStats(boss)}>
+        <BossSection name={boss.name} stats={bossStats(boss)} bodyClassName="max-h-none">
           <PullRows pulls={boss.pulls} data={data} search={search} source={source} />
         </BossSection>
       </main>

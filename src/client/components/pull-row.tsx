@@ -81,4 +81,24 @@ function PullRow({
   });
 }
 
-export { PullRow };
+/** Column labels for a list of full-size PullRows. Keep the widths in step with `PullRow`. */
+function PullRowHeader({ start = false, className }: { start?: boolean; className?: string }) {
+  return (
+    <div
+      data-slot="pull-row-header"
+      className={cn(
+        "flex h-8 items-center gap-3.5 bg-popover px-4 text-xs whitespace-nowrap text-muted-foreground",
+        className,
+      )}
+    >
+      <span className="w-19 shrink-0">Pull</span>
+      <span className="w-12 shrink-0">Result</span>
+      <span className="min-w-0 flex-1">Boss HP over the pull</span>
+      <span className="w-10 shrink-0 text-right">Left</span>
+      <span className="w-11 shrink-0 text-right">Length</span>
+      {start && <span className="w-16 shrink-0 text-right">In VOD</span>}
+    </div>
+  );
+}
+
+export { PullRow, PullRowHeader };
