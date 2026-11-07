@@ -40,7 +40,7 @@ The site runs on Cloudflare Workers and is behind Cloudflare Access for now.
 | [5 Guild upgrade](05-guild-upgrade.md)             | Planned (later) | Optional paid guild upgrade: more VOD slots, ad-free, longer retention.      |
 | [6 Own parsing](06-own-parsing.md)                 | Far future      | Parse combat logs in the browser and upload only a summary.                  |
 
-Each phase builds on the one before it. The nine design screens map onto phases 1 to 4.
+Each phase builds on the one before it. The design screens in [`docs/design/pull-sync-designs.html`](../design/pull-sync-designs.html) map onto phases 1 to 5. Open the file in a browser; it unpacks itself and needs JavaScript.
 
 ## Glossary
 
