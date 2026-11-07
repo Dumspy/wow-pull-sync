@@ -624,11 +624,12 @@ function VideoPane({
         </Empty>
       ) : null}
       {pull ? (
-        <OverlayLabel>
+        // Side by side the label stops short of the speaker button and truncates the pull.
+        <OverlayLabel className={cn(split && "max-w-[calc(100%-7rem)]")}>
           <Dot tone={pull.kill ? "success" : "neutral"} />
-          <span className="font-medium">{vod.name}</span>
-          <span className="text-muted-foreground">{vod.platformLabel}</span>
-          <span className="text-soft-foreground">{pullSummary(pull)}</span>
+          <span className="shrink-0 font-medium">{vod.name}</span>
+          <span className="shrink-0 text-muted-foreground">{vod.platformLabel}</span>
+          <span className="truncate text-soft-foreground">{pullSummary(pull)}</span>
         </OverlayLabel>
       ) : null}
       {split ? (
