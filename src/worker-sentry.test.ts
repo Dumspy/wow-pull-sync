@@ -57,13 +57,12 @@ describe("worker sentry", () => {
 
     try {
       const response = await app.request(
-        "http://pull-sync.example/api/pulls",
+        "http://pull-sync.example/api/report",
         {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             reportUrl: `https://www.warcraftlogs.com/reports/${REPORT}`,
-            vodUrl: `https://youtube.com/live/${VIDEO}`,
           }),
         },
         {
@@ -86,19 +85,18 @@ describe("worker sentry", () => {
     }
   });
 
-  it("leaves a 4xx pulls response unreported", async () => {
+  it("leaves a 4xx report response unreported", async () => {
     bodies.splice(0);
 
     const execution = executionContext();
 
     const missing = await app.request(
-      "http://pull-sync.example/api/pulls",
+      "http://pull-sync.example/api/report",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           reportUrl: "https://www.warcraftlogs.com/reports/aaaaaaaaaaaaaaaa",
-          vodUrl: `https://youtube.com/live/${VIDEO}`,
         }),
       },
       { ASSETS: assets, SENTRY_DSN: dsn, USE_FIXTURES: "true" },
@@ -114,7 +112,7 @@ describe("worker sentry", () => {
     expect(transactionCount(bodies)).toBe(0);
   });
 
-  it("reports a swallowed pulls failure once and keeps the 500 JSON", async () => {
+  it("reports a swallowed report failure once and keeps the 500 JSON", async () => {
     bodies.splice(0);
 
     const execution = executionContext();
@@ -128,7 +126,7 @@ describe("worker sentry", () => {
 
     try {
       const response = await app.request(
-        `http://pull-sync.example/api/pulls?access_token=${WCL_TOKEN}`,
+        `http://pull-sync.example/api/report?access_token=${WCL_TOKEN}`,
         {
           method: "POST",
           headers: {
@@ -138,7 +136,6 @@ describe("worker sentry", () => {
           },
           body: JSON.stringify({
             reportUrl: `https://www.warcraftlogs.com/reports/${REPORT}`,
-            vodUrl: `https://youtube.com/live/${VIDEO}`,
             client_secret: CLIENT_SECRET,
           }),
         },
@@ -166,6 +163,44 @@ describe("worker sentry", () => {
       expect(payload).not.toContain(API_KEY);
       expect(payload).not.toContain("topsecret");
       expect(payload).not.toContain("wcl-client-id");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("reports a swallowed VOD failure once without the video id or API key", async () => {
+    bodies.splice(0);
+
+    const execution = executionContext();
+    const original = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const url = requestUrl(input);
+
+      if (url.includes("127.0.0.1")) return original(input, init);
+      throw new Error(`network down ${url}`);
+    };
+
+    try {
+      const response = await app.request(
+        "http://pull-sync.example/api/vod",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ vodUrl: `https://youtube.com/live/${VIDEO}` }),
+        },
+        { ASSETS: assets, SENTRY_DSN: dsn, YOUTUBE_API_KEY: API_KEY },
+        execution.ctx,
+      );
+
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: "Something went wrong loading that VOD." });
+      await execution.done();
+      await flush(1000);
+
+      expect(eventCount(bodies)).toBe(1);
+      const payload = joined(bodies);
+      expect(payload).not.toContain(VIDEO);
+      expect(payload).not.toContain(API_KEY);
     } finally {
       globalThis.fetch = original;
     }

@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQueries } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
   createRoute,
@@ -13,8 +13,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { DesignGallery } from "./design-gallery";
 import { Devtools } from "./devtools";
 import { PastePage } from "./paste-page";
-import { pullsQueryOptions, REQUEST_OFFSET_SECONDS } from "./pulls-query";
 import { RaidPage } from "./raid-page";
+import { reportQueryOptions, vodQueryOptions } from "./raid-queries";
 import {
   RaidLinkError,
   raidSearchSchema,
@@ -30,6 +30,22 @@ export interface RouterContext {
 }
 
 const reportCodeSchema = z.string().regex(/^[A-Za-z0-9]+$/);
+
+/** Loads the report and the VOD side by side; they are separate requests. */
+function loadRaid(queryClient: QueryClient, reportCode: string, vod: string) {
+  return Promise.all([
+    queryClient.ensureQueryData(reportQueryOptions(reportCode)),
+    queryClient.ensureQueryData(vodQueryOptions(vod)),
+  ]);
+}
+
+function useRaid(reportCode: string, vod: string) {
+  const [report, video] = useSuspenseQueries({
+    queries: [reportQueryOptions(reportCode), vodQueryOptions(vod)],
+  });
+
+  return { report: report.data, vod: video.data };
+}
 
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
@@ -69,10 +85,7 @@ const raidRoute = createRoute({
   validateSearch: raidSearchSchema,
   params: reportParams,
   loaderDeps: ({ search }) => ({ vod: search.vod }),
-  loader: ({ context, params, deps }) =>
-    context.queryClient.ensureQueryData(
-      pullsQueryOptions(params.reportCode, deps.vod, REQUEST_OFFSET_SECONDS),
-    ),
+  loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
   pendingMinMs: 0,
@@ -89,9 +102,7 @@ function RaidRoute() {
     select: (state) => state.location.state.offsetText ?? "0",
   });
 
-  const { data } = useSuspenseQuery(
-    pullsQueryOptions(reportCode, search.vod, REQUEST_OFFSET_SECONDS),
-  );
+  const { report, vod } = useRaid(reportCode, search.vod);
 
   const onSelectPull = useCallback(
     (fightId: number, seconds: number | null) => {
@@ -116,7 +127,8 @@ function RaidRoute() {
 
   return (
     <RaidPage
-      data={data}
+      report={report}
+      vod={vod}
       search={search}
       initialOffsetText={initialOffsetText}
       onSelectPull={onSelectPull}
@@ -132,10 +144,7 @@ const overviewRoute = createRoute({
   validateSearch: raidViewSearchSchema,
   params: reportParams,
   loaderDeps: ({ search }) => ({ vod: search.vod }),
-  loader: ({ context, params, deps }) =>
-    context.queryClient.ensureQueryData(
-      pullsQueryOptions(params.reportCode, deps.vod, REQUEST_OFFSET_SECONDS),
-    ),
+  loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
   pendingMinMs: 0,
@@ -147,11 +156,9 @@ function OverviewRoute() {
   const search = overviewRoute.useSearch();
   const { reportCode } = overviewRoute.useParams();
 
-  const { data } = useSuspenseQuery(
-    pullsQueryOptions(reportCode, search.vod, REQUEST_OFFSET_SECONDS),
-  );
+  const { report, vod } = useRaid(reportCode, search.vod);
 
-  return <OverviewPage data={data} search={search} />;
+  return <OverviewPage report={report} vod={vod} search={search} />;
 }
 
 const bossRoute = createRoute({
@@ -172,10 +179,7 @@ const bossRoute = createRoute({
     }),
   },
   loaderDeps: ({ search }) => ({ vod: search.vod }),
-  loader: ({ context, params, deps }) =>
-    context.queryClient.ensureQueryData(
-      pullsQueryOptions(params.reportCode, deps.vod, REQUEST_OFFSET_SECONDS),
-    ),
+  loader: ({ context, params, deps }) => loadRaid(context.queryClient, params.reportCode, deps.vod),
   pendingComponent: LoadingRaid,
   pendingMs: 0,
   pendingMinMs: 0,
@@ -187,11 +191,9 @@ function BossRoute() {
   const search = bossRoute.useSearch();
   const { reportCode, encounterId } = bossRoute.useParams();
 
-  const { data } = useSuspenseQuery(
-    pullsQueryOptions(reportCode, search.vod, REQUEST_OFFSET_SECONDS),
-  );
+  const { report, vod } = useRaid(reportCode, search.vod);
 
-  return <BossProgressPage data={data} search={search} encounterId={encounterId} />;
+  return <BossProgressPage report={report} vod={vod} search={search} encounterId={encounterId} />;
 }
 
 const designRoute = createRoute({

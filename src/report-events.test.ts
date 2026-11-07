@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { pullSyncResponseSchema } from "./contract";
-import { fixtureReportBody, fixtureYoutubeBody, FIXTURE_VIDEO_ID } from "./fixtures";
-import { readReport, readYoutubeVideo } from "./parse-api";
+import { reportResponseSchema } from "./contract";
+import { fixtureReportBody } from "./fixtures";
+import { readReport } from "./parse-api";
 import { buildPulls } from "./pulls";
 import { buildEncounterPhases, buildPlayers } from "./report-meta";
 import { loadReportEvents } from "./report-events";
@@ -12,9 +12,8 @@ const CODE = "TPYJD2c4VkLZfBp9";
 
 describe("recorded events", async () => {
   const report = readReport(fixtureReportBody(CODE));
-  const vod = readYoutubeVideo(fixtureYoutubeBody(FIXTURE_VIDEO_ID));
   const events = await loadReportEvents(CODE, "", "", true, report);
-  const pulls = buildPulls(report, vod, 0, events);
+  const pulls = buildPulls(report, events);
   const pull = (fightId: number) => pulls.find((item) => item.fightId === fightId);
 
   it("puts each death on its pull, counted from the pull start, in order", () => {
@@ -81,16 +80,15 @@ describe("recorded events", async () => {
   });
 });
 
-describe("POST /api/pulls with fixtures", () => {
+describe("POST /api/report with fixtures", () => {
   it("returns the report details, roster, deaths and abilities the design needs", async () => {
     const response = await app.request(
-      "http://localhost/api/pulls",
+      "http://localhost/api/report",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           reportUrl: `https://www.warcraftlogs.com/reports/${CODE}`,
-          vodUrl: "https://youtube.com/live/BLJBhzLNt8w",
         }),
       },
       {
@@ -101,7 +99,7 @@ describe("POST /api/pulls with fixtures", () => {
 
     expect(response.status).toBe(200);
 
-    const body = pullSyncResponseSchema.parse(await response.json());
+    const body = reportResponseSchema.parse(await response.json());
 
     expect(body.zone).toEqual({ id: 53, name: "The Venomous Abyss" });
     expect(body.guild?.name).toBe("Average Pillagers");
@@ -116,7 +114,6 @@ describe("POST /api/pulls with fixtures", () => {
 
 const ACCESS_TOKEN = "access-token-not-for-logs";
 const CLIENT_SECRET = "client-secret-not-for-logs";
-const YOUTUBE_KEY = "youtube-key-not-for-logs";
 
 describe("failed events requests", () => {
   afterEach(() => {
@@ -140,7 +137,7 @@ describe("failed events requests", () => {
     const warnings = captureWarnings();
     stubWarcraftLogs("network", true);
 
-    const response = await postPulls();
+    const response = await postReport();
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Something went wrong loading that raid." });
@@ -154,11 +151,11 @@ async function expectEmptyEvents(failure: EventsFailure) {
   const warnings = captureWarnings();
   stubWarcraftLogs(failure, false);
 
-  const response = await postPulls();
+  const response = await postReport();
 
   expect(response.status).toBe(200);
 
-  const body = pullSyncResponseSchema.parse(await response.json());
+  const body = reportResponseSchema.parse(await response.json());
 
   expect(body.pulls).toHaveLength(22);
   expect(body.guild?.name).toBe("Average Pillagers");
@@ -170,7 +167,6 @@ async function expectEmptyEvents(failure: EventsFailure) {
   ]);
   expect(warnings.join("\n")).not.toContain(ACCESS_TOKEN);
   expect(warnings.join("\n")).not.toContain(CLIENT_SECRET);
-  expect(warnings.join("\n")).not.toContain(YOUTUBE_KEY);
 }
 
 function captureWarnings(): string[] {
@@ -183,22 +179,20 @@ function captureWarnings(): string[] {
   return warnings;
 }
 
-function postPulls() {
+function postReport() {
   return app.request(
-    "http://localhost/api/pulls",
+    "http://localhost/api/report",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         reportUrl: `https://www.warcraftlogs.com/reports/${CODE}`,
-        vodUrl: "https://youtube.com/live/BLJBhzLNt8w",
       }),
     },
     {
       ASSETS: { fetch: async () => new Response("") },
       WCL_CLIENT_ID: "client-id",
       WCL_CLIENT_SECRET: CLIENT_SECRET,
-      YOUTUBE_API_KEY: YOUTUBE_KEY,
     },
   );
 }
@@ -211,10 +205,6 @@ function stubWarcraftLogs(failure: EventsFailure, failReport: boolean) {
 
       if (url === "https://www.warcraftlogs.com/oauth/token") {
         return Response.json({ access_token: ACCESS_TOKEN, expires_in: 3600 });
-      }
-
-      if (url.startsWith("https://www.googleapis.com/youtube/")) {
-        return Response.json(fixtureYoutubeBody(FIXTURE_VIDEO_ID));
       }
 
       const query = bodyText(init);

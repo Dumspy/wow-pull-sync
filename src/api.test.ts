@@ -3,58 +3,61 @@ import { describe, expect, it } from "vitest";
 import wranglerConfig from "../wrangler.jsonc?raw";
 
 import { api } from "./api";
-import { pullSyncResponseSchema } from "./contract";
+import { reportResponseSchema, vodResponseSchema } from "./contract";
 import app from "./worker";
 
-function post(body: string) {
-  return api.request("/pulls", {
+function post(path: "/report" | "/vod", body: string) {
+  return api.request(path, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,
   });
 }
 
-describe("POST /api/pulls", () => {
+describe("POST /api/report and /api/vod", () => {
   it("returns Hono's default 404 for a method other than POST", async () => {
-    const response = await api.request("/pulls", { method: "GET" });
-
-    expect(response.status).toBe(404);
+    expect((await api.request("/report", { method: "GET" })).status).toBe(404);
+    expect((await api.request("/vod", { method: "GET" })).status).toBe(404);
   });
 
   it("rejects a body that is not JSON", async () => {
-    const response = await post("{");
+    for (const path of ["/report", "/vod"] as const) {
+      const response = await post(path, "{");
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Send a JSON body." });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Send a JSON body." });
+    }
   });
 
   it("rejects a JSON value that is not an object", async () => {
-    const response = await post("null");
+    for (const path of ["/report", "/vod"] as const) {
+      const response = await post(path, "null");
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Send a JSON body." });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "Send a JSON body." });
+    }
   });
 
-  it("asks for both URLs", async () => {
-    const response = await post("{}");
+  it("asks for the URL each endpoint needs", async () => {
+    const report = await post("/report", "{}");
+    const vod = await post("/vod", "{}");
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "Enter a Warcraft Logs report URL and a YouTube VOD URL.",
+    expect(report.status).toBe(400);
+    expect(await report.json()).toEqual({ error: "Enter a Warcraft Logs report URL." });
+    expect(vod.status).toBe(400);
+    expect(await vod.json()).toEqual({ error: "Enter a YouTube VOD URL." });
+  });
+
+  it("checks the report URL and the VOD URL", async () => {
+    const report = await post("/report", JSON.stringify({ reportUrl: "nope" }));
+    const vod = await post("/vod", JSON.stringify({ vodUrl: "nope" }));
+
+    expect(report.status).toBe(400);
+    expect(await report.json()).toEqual({
+      error: "That doesn't look like a Warcraft Logs report URL.",
     });
-  });
-
-  it("rejects a non-numeric offset", async () => {
-    const response = await post(
-      JSON.stringify({
-        reportUrl: "https://www.warcraftlogs.com/reports/abc",
-        vodUrl: "https://youtube.com/watch?v=abcdefghijk",
-        offsetSeconds: "nope",
-      }),
-    );
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Offset must be a number of seconds." });
+    expect(vod.status).toBe(400);
+    expect(await vod.json()).toEqual({ error: "That doesn't look like a YouTube URL." });
   });
 
   it("serves every other path from the asset binding", async () => {
@@ -66,27 +69,33 @@ describe("POST /api/pulls", () => {
 
     const page = await app.request("http://localhost/", {}, env);
     const other = await app.request("http://localhost/api/other", {}, env);
-    const wrongMethod = await app.request("http://localhost/api/pulls", { method: "GET" }, env);
-
-    const mountedPost = await app.request(
-      "http://localhost/api/pulls",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      },
-      env,
-    );
+    const oldPulls = await app.request("http://localhost/api/pulls", { method: "POST" }, env);
 
     expect(page.status).toBe(200);
     expect(await page.text()).toBe("page");
     expect(other.status).toBe(200);
     expect(await other.text()).toBe("page");
-    expect(wrongMethod.status).toBe(404);
-    expect(mountedPost.status).toBe(400);
+    expect(oldPulls.status).toBe(200);
+
+    for (const path of ["/api/report", "/api/vod"]) {
+      const wrongMethod = await app.request(`http://localhost${path}`, { method: "GET" }, env);
+
+      const mountedPost = await app.request(
+        `http://localhost${path}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        },
+        env,
+      );
+
+      expect(wrongMethod.status).toBe(404);
+      expect(mountedPost.status).toBe(400);
+    }
   });
 
-  it("serves a raid URL from assets and keeps a non-POST /api/pulls off the HTML page", async () => {
+  it("serves a raid URL from assets and keeps a non-POST API call off the HTML page", async () => {
     const env = {
       ASSETS: {
         fetch: async (input: Request | URL | string) => {
@@ -110,16 +119,19 @@ describe("POST /api/pulls", () => {
       env,
     );
 
-    const wrongMethod = await app.request("http://localhost/api/pulls", { method: "GET" }, env);
-    const wrongText = await wrongMethod.text();
-
     expect(raid.status).toBe(200);
     expect(raid.headers.get("content-type")).toContain("text/html");
     expect(await raid.text()).toContain('id="root"');
-    expect(wrongMethod.status).toBe(404);
-    expect(wrongMethod.headers.get("content-type") ?? "").not.toContain("text/html");
-    expect(wrongText).not.toContain("root");
-    expect(wrongText).not.toContain("<!doctype");
+
+    for (const path of ["/api/report", "/api/vod"]) {
+      const wrongMethod = await app.request(`http://localhost${path}`, { method: "GET" }, env);
+      const wrongText = await wrongMethod.text();
+
+      expect(wrongMethod.status).toBe(404);
+      expect(wrongMethod.headers.get("content-type") ?? "").not.toContain("text/html");
+      expect(wrongText).not.toContain("root");
+      expect(wrongText).not.toContain("<!doctype");
+    }
   });
 
   it("keeps Workers Assets on the single-page app for paths other than /api", () => {
@@ -129,15 +141,14 @@ describe("POST /api/pulls", () => {
     expect(config).toContain('"/api/*"');
   });
 
-  it("keeps the encounter id on the pulls response", async () => {
+  it("keeps the encounter id on the report response", async () => {
     const response = await api.request(
-      "/pulls",
+      "/report",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           reportUrl: "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9",
-          vodUrl: "https://youtube.com/live/BLJBhzLNt8w",
         }),
       },
       { USE_FIXTURES: "true" },
@@ -145,18 +156,59 @@ describe("POST /api/pulls", () => {
 
     expect(response.status).toBe(200);
 
-    const body = pullSyncResponseSchema.parse(await response.json());
+    const body = reportResponseSchema.parse(await response.json());
 
     expect(body.pulls[0]?.encounterId).toBe(3492);
     expect(body.pulls.at(-1)?.encounterId).toBe(3379);
   });
 
-  it("treats a missing offset as zero and then checks the report URL", async () => {
-    const response = await post(JSON.stringify({ reportUrl: "nope", vodUrl: "nope" }));
+  it("returns the VOD's start time and length", async () => {
+    const response = await api.request(
+      "/vod",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ vodUrl: "https://youtube.com/live/BLJBhzLNt8w" }),
+      },
+      { USE_FIXTURES: "true" },
+    );
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "That doesn't look like a Warcraft Logs report URL.",
+    expect(response.status).toBe(200);
+    expect(vodResponseSchema.parse(await response.json())).toEqual({
+      platform: "youtube",
+      id: "BLJBhzLNt8w",
+      title: "Average Pillagers - 29/10/26",
+      startedAtMs: Date.parse("2026-10-29T18:38:02Z"),
+      durationSeconds: 9495,
     });
+  });
+
+  it("asks only for the credentials each endpoint uses", async () => {
+    const report = await api.request(
+      "/report",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reportUrl: "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9",
+        }),
+      },
+      { YOUTUBE_API_KEY: "key" },
+    );
+
+    const vod = await api.request(
+      "/vod",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ vodUrl: "https://youtube.com/live/BLJBhzLNt8w" }),
+      },
+      { WCL_CLIENT_ID: "id", WCL_CLIENT_SECRET: "secret" },
+    );
+
+    expect(report.status).toBe(500);
+    expect(await report.json()).toEqual({ error: "WCL API credentials are not configured." });
+    expect(vod.status).toBe(500);
+    expect(await vod.json()).toEqual({ error: "YouTube API credentials are not configured." });
   });
 });

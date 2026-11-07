@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FIXTURE_VIDEO_ID, fixtureReportBody, fixtureYoutubeBody } from "./fixtures";
+import { matchPullToVod } from "./match";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
@@ -22,14 +23,24 @@ describe("pull to video seconds", () => {
   const report = readReport(fixtureReportBody("TPYJD2c4VkLZfBp9"));
   const vod = readYoutubeVideo(fixtureYoutubeBody(FIXTURE_VIDEO_ID));
 
-  it("matches the server mapping for the recorded night, including a shifted offset", () => {
+  it("matches the wall-clock formula for the recorded night, including a shifted offset", () => {
     for (const offset of [0, 10, -30]) {
       const source = sourceFrom(vod, offset);
-      const pulls = buildPulls(report, vod, offset);
+      const pulls = buildPulls(report);
 
       for (const pull of pulls) {
-        expect(pullToVideoSeconds(pull, source)).toBeCloseTo(pull.vodSeconds, 6);
-        expect(pullInSource(pull, source)).toBe(pull.inVod);
+        const fight = report.fights.find((item) => item.id === pull.fightId);
+
+        const match = matchPullToVod({
+          reportStartMs: report.startTime,
+          fightStartMs: fight?.startTime ?? 0,
+          actualStartMs: vod.actualStartMs,
+          vodDurationSeconds: vod.durationSeconds,
+          offsetSeconds: offset,
+        });
+
+        expect(pullToVideoSeconds(pull, source)).toBeCloseTo(match.vodSeconds, 6);
+        expect(pullInSource(pull, source)).toBe(match.inVod);
         expect(pull.endedAt - pull.startedAt).toBe(pull.durationMs);
       }
     }
@@ -37,7 +48,7 @@ describe("pull to video seconds", () => {
 
   it("keeps pull start on the report wall clock", () => {
     const fight = report.fights.find((item) => item.id === 1);
-    const pull = buildPulls(report, vod, 0)[0];
+    const pull = buildPulls(report)[0];
     expect(fight).toBeDefined();
     expect(pull?.startedAt).toBe(report.startTime + (fight?.startTime ?? 0));
   });
@@ -48,7 +59,7 @@ describe("pull to video seconds", () => {
     );
 
     const source = sourceFrom(late, 0);
-    const pulls = buildPulls(report, late, 0);
+    const pulls = buildPulls(report);
     expect(pullInSource(pulls[0]!, source)).toBe(false);
     expect(pullToVideoSeconds(pulls[0]!, source)).toBeLessThan(0);
     expect(pullInSource(pulls[2]!, source)).toBe(true);

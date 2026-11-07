@@ -5,8 +5,9 @@ export type {
   Ability,
   Player,
   Pull,
-  PullRequest,
-  PullSyncResponse,
+  ReportResponse,
+  VodPlatform,
+  VodResponse,
   WowClass,
 } from "./contract";
 
