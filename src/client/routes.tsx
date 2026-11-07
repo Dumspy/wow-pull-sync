@@ -163,10 +163,13 @@ const bossRoute = createRoute({
   path: "/raid/$reportCode/boss/$encounterId",
   validateSearch: raidViewSearchSchema,
   params: {
-    parse: (params) => ({
-      ...reportParams.parse(params),
-      encounterId: z.coerce.number().int().parse(params.encounterId),
-    }),
+    parse: (params) => {
+      const encounterId = z.coerce.number().int().safeParse(params.encounterId);
+
+      if (!encounterId.success) throw new RaidLinkError();
+
+      return { ...reportParams.parse(params), encounterId: encounterId.data };
+    },
     stringify: (params) => ({
       reportCode: params.reportCode,
       encounterId: String(params.encounterId),

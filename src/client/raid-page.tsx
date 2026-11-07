@@ -161,10 +161,10 @@ export function RaidPage({
           </span>
         </div>
         <StatChip tone="success" value={kills}>
-          kill
+          {kills === 1 ? "kill" : "kills"}
         </StatChip>
         <StatChip tone="neutral" value={data.pulls.length - kills}>
-          wipes
+          {data.pulls.length - kills === 1 ? "wipe" : "wipes"}
         </StatChip>
         <span className="flex-1" />
         <div className="flex items-center gap-1">

@@ -66,7 +66,10 @@ function ViewHeader({
 function bossStats(boss: BossSummary): string {
   const best = boss.kills === 0 && boss.bestWipeHp != null ? ` · best ${boss.bestWipeHp}%` : "";
 
-  return `${boss.kills} kill · ${boss.wipes} wipes · ${formatSpan(boss.timeMs)}${best}`;
+  const kills = `${boss.kills} ${boss.kills === 1 ? "kill" : "kills"}`;
+  const wipes = `${boss.wipes} ${boss.wipes === 1 ? "wipe" : "wipes"}`;
+
+  return `${kills} · ${wipes} · ${formatSpan(boss.timeMs)}${best}`;
 }
 
 /** Pulls shown on the overview before "Show all". */

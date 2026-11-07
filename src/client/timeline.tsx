@@ -150,7 +150,7 @@ export function Timeline({
   const active = pulls.find((pull) => pull.fightId === activeId) ?? null;
 
   return (
-    <footer className="flex flex-col gap-3 border-t bg-card px-4 py-3">
+    <footer className="flex max-h-[40svh] flex-col gap-3 overflow-y-auto border-t bg-card px-4 py-3">
       {active ? (
         <PullLanes
           source={source}
