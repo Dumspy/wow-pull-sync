@@ -8,7 +8,7 @@ import type { Pull, ReportResponse } from "../types";
 import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { Dot } from "./components/dot";
-import { OverlayLabel } from "./components/overlay-label";
+import { PaneCaption } from "./components/pane-caption";
 import { StatChip } from "./components/stat-chip";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
 import { AddVodChip, VodChip } from "./components/vod-chip";
@@ -599,54 +599,59 @@ function VideoPane({
   return (
     <div
       className={cn(
-        "relative min-w-0 flex-1 overflow-hidden rounded-lg border bg-black",
+        "flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-black",
         split && audible && "border-border-strong ring-1 ring-border-strong",
       )}
     >
-      {source ? (
-        <div className="absolute inset-0">
-          <RaidPlayer
-            key={`${source.kind}:${source.id}`}
-            source={source}
-            fake={fake}
-            onController={onController}
-          />
-        </div>
-      ) : (
-        <VodUnavailable vod={vod} onReplace={onReplace} />
-      )}
-      {source && !covered ? (
-        <Empty className="absolute inset-0 border-0 bg-black">
-          <EmptyHeader>
-            <EmptyTitle>No footage for this pull</EmptyTitle>
-            <EmptyDescription>Pick another pull or VOD.</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+      {pull || split ? (
+        <PaneCaption>
+          {pull ? (
+            <>
+              <Dot tone={pull.kill ? "success" : "neutral"} />
+              <span className="shrink-0 font-medium">{vod.name}</span>
+              <span className="shrink-0 text-muted-foreground">{vod.platformLabel}</span>
+              <span className="truncate text-soft-foreground">{pullSummary(pull)}</span>
+            </>
+          ) : null}
+          {split ? (
+            <button
+              type="button"
+              aria-pressed={audible}
+              aria-label={audible ? `${vod.name} is playing audio` : `Play audio from ${vod.name}`}
+              onClick={onListen}
+              className={cn(
+                "ml-auto inline-flex h-6.5 shrink-0 items-center gap-1.5 rounded-sm border bg-background px-2 text-xs",
+                audible ? "border-ring text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {audible ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+              {audible ? "Audio" : "Muted"}
+            </button>
+          ) : null}
+        </PaneCaption>
       ) : null}
-      {pull ? (
-        // Side by side the label stops short of the speaker button and truncates the pull.
-        <OverlayLabel className={cn(split && "max-w-[calc(100%-7rem)]")}>
-          <Dot tone={pull.kill ? "success" : "neutral"} />
-          <span className="shrink-0 font-medium">{vod.name}</span>
-          <span className="shrink-0 text-muted-foreground">{vod.platformLabel}</span>
-          <span className="truncate text-soft-foreground">{pullSummary(pull)}</span>
-        </OverlayLabel>
-      ) : null}
-      {split ? (
-        <button
-          type="button"
-          aria-pressed={audible}
-          aria-label={audible ? `${vod.name} is playing audio` : `Play audio from ${vod.name}`}
-          onClick={onListen}
-          className={cn(
-            "absolute top-3 right-3 inline-flex h-6.5 items-center gap-1.5 rounded-sm border bg-background/80 px-2 text-xs",
-            audible ? "border-ring text-foreground" : "text-muted-foreground",
-          )}
-        >
-          {audible ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
-          {audible ? "Audio" : "Muted"}
-        </button>
-      ) : null}
+      <div className="relative min-h-0 flex-1">
+        {source ? (
+          <div className="absolute inset-0">
+            <RaidPlayer
+              key={`${source.kind}:${source.id}`}
+              source={source}
+              fake={fake}
+              onController={onController}
+            />
+          </div>
+        ) : (
+          <VodUnavailable vod={vod} onReplace={onReplace} />
+        )}
+        {source && !covered ? (
+          <Empty className="absolute inset-0 border-0 bg-black">
+            <EmptyHeader>
+              <EmptyTitle>No footage for this pull</EmptyTitle>
+              <EmptyDescription>Pick another pull or VOD.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : null}
+      </div>
     </div>
   );
 }

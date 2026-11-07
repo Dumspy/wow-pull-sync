@@ -8,7 +8,7 @@ import { CheckboxCard } from "@/components/checkbox-card";
 import { ChoiceButton } from "@/components/choice-button";
 import { FilterChip } from "@/components/filter-chip";
 import { Lane, LaneMark, LaneSegment, Playhead, TimeAxis } from "@/components/lane";
-import { OverlayLabel } from "@/components/overlay-label";
+import { PaneCaption } from "@/components/pane-caption";
 import { PlanCard, PlanFeatures } from "@/components/plan-card";
 import { PullGroup } from "@/components/pull-group";
 import { PullRow } from "@/components/pull-row";
@@ -778,13 +778,13 @@ export function DesignGallery() {
         <Section title="Pull review">
           <div className="grid gap-4 md:grid-cols-[1fr_320px]">
             <div className="flex flex-col gap-2">
-              <div className="relative flex h-56 items-center justify-center rounded-lg border bg-card">
-                <OverlayLabel>
+              <div className="flex h-56 flex-col overflow-hidden rounded-lg border bg-black">
+                <PaneCaption>
                   <Dot />
                   <span className="font-medium">Dispy</span>
                   <span className="text-soft-foreground">Pull #12 · Wipe · 86%</span>
-                </OverlayLabel>
-                <Empty className="border-0">
+                </PaneCaption>
+                <Empty className="flex-1 border-0">
                   <EmptyHeader>
                     <EmptyTitle>No video for this pull</EmptyTitle>
                     <EmptyDescription>This VOD doesn't cover the pull.</EmptyDescription>

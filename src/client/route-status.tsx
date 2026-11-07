@@ -3,6 +3,7 @@ import type { ErrorComponentProps } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { AppBrand, AppHeader } from "./components/app-header";
+import { PaneCaption } from "./components/pane-caption";
 import { buttonVariants } from "./components/ui/button";
 import {
   Empty,
@@ -38,10 +39,15 @@ export function LoadingRaid() {
             <span className="text-xs text-muted-foreground">VODs</span>
             <Skeleton className="h-7 w-44 rounded-sm" />
           </div>
-          <div className="relative grid min-h-0 flex-1 place-items-center overflow-hidden rounded-lg border bg-black">
-            <p className="animate-pulse text-xs text-muted-foreground">
-              Fetching the report and VOD…
-            </p>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-black">
+            <PaneCaption>
+              <Skeleton className="h-3 w-48" />
+            </PaneCaption>
+            <div className="grid min-h-0 flex-1 place-items-center">
+              <p className="animate-pulse text-xs text-muted-foreground">
+                Fetching the report and VOD…
+              </p>
+            </div>
           </div>
           <Skeleton className="h-10 w-full rounded-md border" />
         </div>

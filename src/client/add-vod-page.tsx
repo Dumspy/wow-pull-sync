@@ -11,7 +11,7 @@ import { AppBrand, AppHeader } from "./components/app-header";
 import { Dot } from "./components/dot";
 import { Notice } from "./components/notice";
 import { NumberedStep } from "./components/numbered-step";
-import { OverlayLabel } from "./components/overlay-label";
+import { PaneCaption } from "./components/pane-caption";
 import { PovAvatar } from "./components/pov-avatar";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
@@ -154,6 +154,11 @@ export function AddVodPage({
       </AppHeader>
       <div className="flex flex-1 flex-wrap items-stretch">
         <main className="flex min-w-0 flex-[999_1_560px] flex-col border-r">
+          {source && target != null ? (
+            <PaneCaption>
+              Video at <span className="font-mono">{formatClock(playhead)}</span>
+            </PaneCaption>
+          ) : null}
           <div className="relative min-h-[440px] flex-1 overflow-hidden bg-black">
             {source && target != null ? (
               <div className="absolute inset-0">
@@ -167,11 +172,6 @@ export function AddVodPage({
             ) : (
               <PreviewEmpty state={state} />
             )}
-            {source && target != null ? (
-              <OverlayLabel>
-                Video at <span className="font-mono">{formatClock(playhead)}</span>
-              </OverlayLabel>
-            ) : null}
           </div>
           <div
             className={cn(
