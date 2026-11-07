@@ -38,6 +38,7 @@ function ToggleGroup({
       data-size={size}
       data-spacing={spacing}
       data-orientation={orientation}
+      orientation={orientation}
       // SAFETY: React.CSSProperties has no index signature for custom properties; "--gap" is a valid CSS variable.
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
