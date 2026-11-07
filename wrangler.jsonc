@@ -3,6 +3,7 @@
   "name": "pull-sync",
   "main": "./src/worker.ts",
   "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
   // The production workers.dev route stays off. Attach the custom domain
   // outside this file, and leave `routes` out so a deploy does not replace it.
   // preview_urls turns on Version URLs and workers.dev Preview URLs. Those

@@ -2,12 +2,12 @@ import type { CaptureResult, Properties } from "posthog-js";
 import { z } from "zod";
 
 import { jsonBody, type Json } from "../json";
-
-const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+import { scrubTrackedUrlText } from "../scrub-text";
 
 /**
  * Rewrites report codes, fight ids, and video ids inside analytics payloads.
  * `token` is left alone: it is the project key, not a raid identifier.
+ * Errors are not sent here, so this does not scrub exception lists.
  */
 export function scrubAnalyticsCapture(capture: CaptureResult): CaptureResult {
   return {
@@ -47,7 +47,7 @@ function scrubProperties(fields: Properties): Properties {
 function scrubJson(value: Json): Json {
   const text = z.string().safeParse(value);
 
-  if (text.success) return scrubText(text.data);
+  if (text.success) return scrubTrackedUrlText(text.data);
 
   const list = z.array(jsonBody).safeParse(value);
 
@@ -73,33 +73,4 @@ function scrubJson(value: Json): Json {
   }
 
   return jsonBody.parse(Object.fromEntries(entries));
-}
-
-function scrubText(value: string): string {
-  const withoutPaths = value
-    .replaceAll(/\/raid\/[A-Za-z0-9]+/g, "/raid/:report")
-    .replaceAll(/\/reports\/[A-Za-z0-9]+/g, "/reports/:report")
-    .replaceAll(/youtu\.be\/[A-Za-z0-9_-]{11}/g, "youtu.be/:video")
-    .replaceAll(/\/live\/[A-Za-z0-9_-]{11}/g, "/live/:video")
-    .replaceAll(/\/embed\/[A-Za-z0-9_-]{11}/g, "/embed/:video");
-
-  const withoutNamedParams = replaceNamedParam(
-    replaceNamedParam(replaceNamedParam(withoutPaths, "vod", ":video"), "pull", ":pull"),
-    "fight",
-    ":pull",
-  );
-
-  return withoutNamedParams.replace(/([?&#]v=)([^&#\s]*)/g, (match, prefix: string, raw: string) =>
-    VIDEO_ID.test(raw) ? `${prefix}:video` : match,
-  );
-}
-
-function replaceNamedParam(value: string, name: string, placeholder: string): string {
-  const pattern = new RegExp(`([?&#]${name}=)([^&#\\s]*)`, "g");
-
-  return value.replace(pattern, (match, prefix: string, raw: string) => {
-    if (raw === placeholder) return match;
-
-    return `${prefix}${placeholder}`;
-  });
 }

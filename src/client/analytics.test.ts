@@ -9,11 +9,8 @@ import {
 import type { CaptureResult } from "posthog-js";
 import { describe, expect, it } from "vitest";
 
-import { ErrorTrackingExtensions } from "posthog-js/dist/extension-bundles";
-
 import { analyticsInitOptions, initAnalytics, onResolvedPageview, track } from "./analytics";
 import { scrubAnalyticsCapture } from "./analytics-scrub";
-import { queryErrorProperties, reportedQueryName } from "./query-client";
 import { raidLinkError, raidSearchSchema } from "./raid-search";
 import { routeErrorMessage } from "./route-status";
 
@@ -32,17 +29,15 @@ describe("analytics", () => {
   });
 
   it("keeps automatic pageviews off and scrubs through before_send", () => {
-    const options = analyticsInitOptions(ErrorTrackingExtensions);
+    const options = analyticsInitOptions();
 
     expect(options.capture_pageview).toBe(false);
     expect(options.capture_pageleave).toBe(false);
+    expect(options.capture_exceptions).toBe(false);
     expect(options.cookieless_mode).toBe("always");
     expect(options.persistence).toBeUndefined();
     expect(options.before_send).toBe(scrubAnalyticsCapture);
-    expect(options.__extensionClasses?.exceptionObserver).toBe(
-      ErrorTrackingExtensions.exceptionObserver,
-    );
-    expect(options.__extensionClasses?.exceptions).toBe(ErrorTrackingExtensions.exceptions);
+    expect(options.__extensionClasses).toBeUndefined();
     expect(options.api_host).toBe("https://eu.i.posthog.com");
   });
 });
@@ -63,20 +58,6 @@ describe("analytics scrub", () => {
         $session_entry_url: `https://pull-sync.example/raid/${REPORT}?pull=7&token=phc_entry`,
         $session_entry_pathname: `/raid/${REPORT}`,
         encounter_id: 3492,
-        $exception_list: [
-          {
-            type: "TypeError",
-            value: `Failed to fetch https://pull-sync.example/api/pulls while on https://pull-sync.example/raid/${REPORT}?vod=${VIDEO}&pull=42`,
-            stacktrace: {
-              frames: [
-                {
-                  filename: `https://pull-sync.example/raid/${REPORT}?vod=${VIDEO}`,
-                  abs_path: `https://youtu.be/${VIDEO}`,
-                },
-              ],
-            },
-          },
-        ],
       },
       $set: {
         $initial_pathname: `/raid/${REPORT}`,
@@ -107,26 +88,13 @@ describe("analytics scrub", () => {
     expect(serialised).toContain("pull=:pull");
     expect(serialised).toContain("fight=:pull");
     expect(serialised).toContain("/live/:video");
-    expect(serialised).toContain("youtu.be/:video");
     expect(serialised).toContain("v=:video");
-    expect(serialised).toContain("/api/pulls");
     expect(scrubbed.properties.encounter_id).toBe(3492);
     expect(scrubbed.properties.token).toBe("phc_project_token");
     expect(scrubbed.properties.$current_url).toBe(
       "https://pull-sync.example/raid/:report?vod=:video&pull=:pull&t=1472&token=phc_keep",
     );
     expect(scrubbed.properties.$pathname).toBe("/raid/:report");
-  });
-});
-
-describe("query errors", () => {
-  it("reports only the query name", () => {
-    const name = reportedQueryName(["pulls", REPORT, VIDEO, 0]);
-
-    expect(name).toBe("pulls");
-    expect(JSON.stringify(queryErrorProperties(name ?? ""))).toBe('{"query":"pulls"}');
-    expect(reportedQueryName(["pulls"])).toBe("pulls");
-    expect(reportedQueryName([1, REPORT])).toBeNull();
   });
 });
 

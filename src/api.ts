@@ -2,6 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 
+import { captureException } from "@sentry/cloudflare";
+
 import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
@@ -23,6 +25,7 @@ export interface Env {
   WCL_CLIENT_SECRET?: string;
   YOUTUBE_API_KEY?: string;
   USE_FIXTURES?: string;
+  SENTRY_DSN?: string;
 }
 
 function pullRequestMessage(error: { issues: { path: PropertyKey[] }[] }): string {
@@ -123,6 +126,8 @@ export const api = new Hono<{ Bindings: Env }>().post(
         return c.json({ error: error.message }, 502);
       }
 
+      captureException(error);
+
       return c.json({ error: "Something went wrong loading that raid." }, 500);
     }
   },
@@ -132,6 +137,8 @@ api.onError((error, c) => {
   if (error instanceof HTTPException && error.message === "Malformed JSON in request body") {
     return c.json({ error: "Send a JSON body." }, 400);
   }
+
+  if (!(error instanceof HTTPException) || error.status >= 500) captureException(error);
 
   return c.json({ error: "Something went wrong loading that raid." }, 500);
 });
