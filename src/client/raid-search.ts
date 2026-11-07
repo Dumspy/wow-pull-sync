@@ -5,6 +5,7 @@ export const raidSearchSchema = z.object({
   vod: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
   pull: z.number().int().optional(),
   t: z.number().finite().optional(),
+  offset: z.number().finite().optional(),
   player: z.literal("fake").optional(),
 });
 
@@ -30,7 +31,16 @@ export function searchForPull(
 
   if (seconds != null) next.t = seconds;
 
+  if (current.offset != null) next.offset = current.offset;
+
   if (current.player != null) next.player = current.player;
 
   return next;
+}
+
+/** The search with `offset` set, or dropped when it is zero. */
+export function searchWithOffset(current: RaidSearch, offset: number): RaidSearch {
+  const { offset: _previous, ...rest } = current;
+
+  return offset === 0 ? rest : { ...rest, offset };
 }
