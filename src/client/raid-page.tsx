@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Columns2, Volume2, VolumeX } from "lucide-react";
+
 import { pullSecondsIn, sameMoment, type VideoSource } from "../source";
 import type { Pull, ReportResponse } from "../types";
 import { track } from "./analytics";
@@ -27,8 +29,12 @@ import { PullList } from "./pull-list";
 import {
   activeVodIndex,
   searchForPull,
+  MAX_PANES,
   searchWithOffset,
+  searchWithPaneToggled,
   searchWithRecorder,
+  searchWithSideBySide,
+  sidePanes,
   searchWithSpells,
   viewSearch,
   type RaidSearch,
@@ -66,12 +72,27 @@ export function RaidPage({
   /** Where to put the next VOD's player after a switch, so the moment of the pull stays put. */
   const resumeAt = useRef<number | null>(null);
 
-  const [player, setPlayer] = useState<PlayerController | null>(null);
+  /** One controller per VOD pane, by VOD index. The VOD with sound (`pov`) leads the rest. */
+  const [controllers, setControllers] = useState<ReadonlyMap<number, PlayerController>>(
+    () => new Map(),
+  );
+
   const fakePlayer = devFakePlayer();
   const offsetSeconds = offsetNumber(offsetText);
+  const player = controllers.get(activeIndex) ?? null;
+  const panes = sidePanes(search);
+  const split = panes.length > 0;
+  const shownIndexes = split ? panes : [activeIndex];
 
-  const onController = useCallback((next: PlayerController | null) => {
-    setPlayer(next);
+  const register = useCallback((index: number, next: PlayerController | null) => {
+    setControllers((previous) => {
+      const updated = new Map(previous);
+
+      if (next) updated.set(index, next);
+      else updated.delete(index);
+
+      return updated;
+    });
   }, []);
 
   const loaded = shown.source;
@@ -90,6 +111,74 @@ export function RaidPage({
   );
 
   const activePull = report.pulls.find((pull) => pull.fightId === search.pull) ?? null;
+
+  /** The leader uses the offset being typed; the other panes their saved offsets. */
+  function paneSource(index: number): VideoSource | null {
+    return index === activeIndex ? source : (vods[index]?.source ?? null);
+  }
+
+  /** Followers: the other panes side by side, each with its controller and source. */
+  const followers = shownIndexes.flatMap((index) => {
+    const controller = controllers.get(index);
+    const own = paneSource(index);
+
+    return index !== activeIndex && controller && own ? [{ controller, source: own }] : [];
+  });
+
+  /** Seek the leader, and every other pane to the same moment (or pause it if it has none). */
+  function seekAll(seconds: number) {
+    player?.seekTo(seconds);
+
+    if (!source) return;
+
+    for (const follower of followers) {
+      const target = sameMoment(seconds, source, follower.source);
+
+      if (target == null) follower.controller.pause();
+      else follower.controller.seekTo(target);
+    }
+  }
+
+  const sync = useRef({ player, source, followers });
+  sync.current = { player, source, followers };
+
+  // Side by side, the other panes follow the leader: same moment, playing or paused with it.
+  useEffect(() => {
+    if (!split) return;
+
+    const timer = window.setInterval(() => {
+      const { player: leader, source: leading, followers: others } = sync.current;
+
+      if (!leader || !leading) return;
+      const at = leader.getCurrentTime();
+      const playing = leader.isPlaying();
+
+      for (const follower of others) {
+        const target = sameMoment(at, leading, follower.source);
+
+        if (target == null) {
+          follower.controller.pause();
+          continue;
+        }
+
+        if (Math.abs(follower.controller.getCurrentTime() - target) > 1.5) {
+          follower.controller.seekTo(target);
+        }
+
+        if (playing && !follower.controller.isPlaying()) follower.controller.play();
+        else if (!playing && follower.controller.isPlaying()) follower.controller.pause();
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [split]);
+
+  // Only the leader has sound side by side.
+  useEffect(() => {
+    for (const [index, controller] of controllers) {
+      controller.setMuted(split && index !== activeIndex);
+    }
+  }, [controllers, split, activeIndex]);
 
   useEffect(() => {
     track("raid loaded", { pull_count: report.pulls.length });
@@ -117,7 +206,16 @@ export function RaidPage({
 
     return player.onReady(() => {
       resumeAt.current = null;
-      player.seekTo(seconds);
+      sync.current.player?.seekTo(seconds);
+      const { source: leading, followers: others } = sync.current;
+
+      if (!leading) return;
+
+      for (const follower of others) {
+        const target = sameMoment(seconds, leading, follower.source);
+
+        if (target != null) follower.controller.seekTo(target);
+      }
     });
   }, [player, source, report.pulls, search.pull]);
 
@@ -125,7 +223,7 @@ export function RaidPage({
     track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill });
     const exact = pullSecondsIn(pull, source);
 
-    if (exact != null) player?.seekTo(exact);
+    if (exact != null) seekAll(exact);
     onSelectPull(pull.fightId, exact == null ? null : Math.round(exact));
   }
 
@@ -148,7 +246,7 @@ export function RaidPage({
 
   function seek(seconds: number) {
     if (!source || seconds < 0 || seconds > source.duration) return;
-    player?.seekTo(seconds);
+    seekAll(seconds);
   }
 
   /** Show another VOD at the same wall-clock moment, or at the pull start if it has no footage then. */
@@ -158,8 +256,6 @@ export function RaidPage({
 
     track("VOD switched", { platform: next.ref.platform });
     setOffsetText(String(next.ref.offset ?? 0));
-    // Drop the old player now; its controller must not take the new VOD's seek.
-    setPlayer(null);
     // `t` is the pull start in the VOD on screen, so it follows the switch.
     const { t: _previous, ...rest } = search;
     const t = activePull ? seekSeconds(activePull, next.source) : null;
@@ -200,6 +296,22 @@ export function RaidPage({
 
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  /** Side by side, a chip adds or removes its pane; the sound moves with it. */
+  function togglePane(vod: RaidVod) {
+    const next = searchWithPaneToggled(search, vod.index);
+    const pov = activeVodIndex(next);
+
+    if (pov !== activeIndex) setOffsetText(String(search.vods[pov]?.offset ?? 0));
+    onReplaceSearch(next);
+  }
+
+  /** Side by side, give a pane the sound. It leads from then on. */
+  function listenTo(index: number) {
+    if (index === activeIndex) return;
+    setOffsetText(String(search.vods[index]?.offset ?? 0));
+    onReplaceSearch({ ...search, pov: index });
+  }
 
   const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
   const recorders = report.players.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -272,8 +384,8 @@ export function RaidPage({
           <div className="flex flex-wrap items-center gap-2" aria-label="VODs" role="group">
             <span className="text-xs text-muted-foreground">VODs</span>
             {vods.map((vod) => {
-              const active = vod.index === activeIndex;
-              const offset = active ? offsetSeconds : (vod.ref.offset ?? 0);
+              const active = split ? panes.includes(vod.index) : vod.index === activeIndex;
+              const offset = vod.index === activeIndex ? offsetSeconds : (vod.ref.offset ?? 0);
 
               const covers =
                 vod.source && activePull
@@ -290,41 +402,53 @@ export function RaidPage({
                   covers={covers}
                   expired={vod.status === "expired"}
                   active={active}
-                  onClick={() => switchVod(vod)}
+                  onClick={() => (split ? togglePane(vod) : switchVod(vod))}
                 />
               );
             })}
             <AddVodChip onClick={() => onAddVod(null)} />
+            <span className="flex-1" />
+            {split ? (
+              <span className="text-xs text-muted-foreground">
+                Pick up to {MAX_PANES} · speaker sets the audio
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-pressed={split}
+              disabled={vods.length < 2}
+              className="aria-pressed:bg-accent"
+              onClick={() => {
+                track("side by side toggled", { on: !split });
+                onReplaceSearch(searchWithSideBySide(search, !split));
+              }}
+            >
+              <Columns2 />
+              Side by side
+            </Button>
           </div>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
-            {source ? (
-              <div className="absolute inset-0">
-                <RaidPlayer
-                  key={`${source.kind}:${source.id}`}
-                  source={source}
+          <div className="flex min-h-0 flex-1 gap-2">
+            {shownIndexes.map((index) => {
+              // SAFETY: shown indexes come from sidePanes or activeVodIndex, both in range.
+              const vod = vods[index] as RaidVod;
+
+              return (
+                <VideoPane
+                  key={`${index}:${vod.ref.platform}:${vod.ref.id}`}
+                  vod={vod}
+                  source={paneSource(index)}
+                  pull={activePull}
                   fake={fakePlayer}
-                  onController={onController}
+                  register={register}
+                  split={split}
+                  audible={index === activeIndex}
+                  onListen={() => listenTo(index)}
+                  onReplace={() => onAddVod(index)}
                 />
-              </div>
-            ) : (
-              <VodUnavailable vod={shown} onReplace={() => onAddVod(shown.index)} />
-            )}
-            {source && activePull && pullStart == null ? (
-              <Empty className="absolute inset-0 border-0 bg-black">
-                <EmptyHeader>
-                  <EmptyTitle>No footage for this pull</EmptyTitle>
-                  <EmptyDescription>Pick another pull or VOD.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : null}
-            {activePull ? (
-              <OverlayLabel>
-                <Dot tone={activePull.kill ? "success" : "neutral"} />
-                <span className="font-medium">{shown.name}</span>
-                <span className="text-muted-foreground">{shown.platformLabel}</span>
-                <span className="text-soft-foreground">{pullSummary(activePull)}</span>
-              </OverlayLabel>
-            ) : null}
+              );
+            })}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border bg-card px-4 py-2 font-mono text-xs tabular-nums">
             {source ? (
@@ -439,6 +563,91 @@ function seekSeconds(pull: Pull, source: VideoSource | null): number | null {
   const seconds = pullSecondsIn(pull, source);
 
   return seconds == null ? null : Math.round(seconds);
+}
+
+/** One VOD's player with its label. Side by side it also has the speaker button. */
+function VideoPane({
+  vod,
+  source,
+  pull,
+  fake,
+  register,
+  split,
+  audible,
+  onListen,
+  onReplace,
+}: {
+  vod: RaidVod;
+  source: VideoSource | null;
+  pull: Pull | null;
+  fake: boolean;
+  register: (index: number, controller: PlayerController | null) => void;
+  split: boolean;
+  audible: boolean;
+  onListen: () => void;
+  onReplace: () => void;
+}) {
+  const index = vod.index;
+
+  const onController = useCallback(
+    (controller: PlayerController | null) => register(index, controller),
+    [register, index],
+  );
+
+  const covered = pull ? pullSecondsIn(pull, source) != null : true;
+
+  return (
+    <div
+      className={cn(
+        "relative min-w-0 flex-1 overflow-hidden rounded-lg border bg-black",
+        split && audible && "border-border-strong ring-1 ring-border-strong",
+      )}
+    >
+      {source ? (
+        <div className="absolute inset-0">
+          <RaidPlayer
+            key={`${source.kind}:${source.id}`}
+            source={source}
+            fake={fake}
+            onController={onController}
+          />
+        </div>
+      ) : (
+        <VodUnavailable vod={vod} onReplace={onReplace} />
+      )}
+      {source && !covered ? (
+        <Empty className="absolute inset-0 border-0 bg-black">
+          <EmptyHeader>
+            <EmptyTitle>No footage for this pull</EmptyTitle>
+            <EmptyDescription>Pick another pull or VOD.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : null}
+      {pull ? (
+        <OverlayLabel>
+          <Dot tone={pull.kill ? "success" : "neutral"} />
+          <span className="font-medium">{vod.name}</span>
+          <span className="text-muted-foreground">{vod.platformLabel}</span>
+          <span className="text-soft-foreground">{pullSummary(pull)}</span>
+        </OverlayLabel>
+      ) : null}
+      {split ? (
+        <button
+          type="button"
+          aria-pressed={audible}
+          aria-label={audible ? `${vod.name} is playing audio` : `Play audio from ${vod.name}`}
+          onClick={onListen}
+          className={cn(
+            "absolute top-3 right-3 inline-flex h-6.5 items-center gap-1.5 rounded-sm border bg-background/80 px-2 text-xs",
+            audible ? "border-ring text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {audible ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+          {audible ? "Audio" : "Muted"}
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 /** The player area when the VOD on screen can't play: still loading, gone, or failed. */

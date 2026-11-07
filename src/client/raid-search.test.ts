@@ -6,6 +6,9 @@ import {
   raidViewSearchSchema,
   searchForPull,
   searchWithOffset,
+  searchWithPaneToggled,
+  searchWithSideBySide,
+  sidePanes,
   searchWithRecorder,
   searchWithVod,
   viewSearch,
@@ -86,6 +89,46 @@ describe("raid search", () => {
     expect(searchWithVod({ vods: [YOUTUBE] }, added, 5)).toEqual({
       vods: [YOUTUBE, added],
       pov: 1,
+    });
+  });
+
+  describe("side by side", () => {
+    const third = { platform: "twitch", id: "2916000000" } as const;
+    const fourth = { platform: "youtube", id: "dQw4w9WgXcQ" } as const;
+    const four = [YOUTUBE, TWITCH, third, fourth];
+
+    it("starts with the VOD on screen and the next one", () => {
+      expect(searchWithSideBySide({ vods: [YOUTUBE, TWITCH], pov: 1 }, true).side).toEqual([1, 0]);
+      expect(searchWithSideBySide({ vods: [YOUTUBE] }, true).side).toBeUndefined();
+      expect(searchWithSideBySide({ vods: [YOUTUBE, TWITCH], side: [0, 1] }, false)).toEqual({
+        vods: [YOUTUBE, TWITCH],
+      });
+    });
+
+    it("adds a VOD with sound, and drops the oldest pick past three", () => {
+      const three = searchWithPaneToggled({ vods: four, side: [0, 1], pov: 0 }, 2);
+
+      expect(three).toMatchObject({ side: [0, 1, 2], pov: 2 });
+      expect(searchWithPaneToggled(three, 3)).toMatchObject({ side: [1, 2, 3], pov: 3 });
+    });
+
+    it("removes a VOD and moves the sound if it had it", () => {
+      expect(searchWithPaneToggled({ vods: four, side: [0, 1, 2], pov: 1 }, 1)).toMatchObject({
+        side: [0, 2],
+        pov: 0,
+      });
+    });
+
+    it("ignores panes past the end and needs two to split", () => {
+      expect(sidePanes({ vods: [YOUTUBE, TWITCH], side: [0, 5, 1, 1] })).toEqual([0, 1]);
+      expect(sidePanes({ vods: [YOUTUBE, TWITCH], side: [1] })).toEqual([]);
+      expect(raidSearchSchema.safeParse({ vods: four, side: [0, 1, 2, 3] }).success).toBe(false);
+    });
+
+    it("keeps the panes when a pull is picked", () => {
+      expect(searchForPull({ vods: [YOUTUBE, TWITCH], side: [0, 1] }, 3, null).side).toEqual([
+        0, 1,
+      ]);
     });
   });
 });

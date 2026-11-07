@@ -6,8 +6,14 @@ import { track } from "./analytics";
 import { formatClock, formatSeconds } from "./format";
 
 export interface PlayerController {
+  /** Seeks and plays. */
   seekTo(seconds: number): void;
   getCurrentTime(): number;
+  play(): void;
+  pause(): void;
+  isPlaying(): boolean;
+  /** Side by side keeps every pane but one muted. Applied once the player is ready. */
+  setMuted(muted: boolean): void;
   /** If the player is already ready, the listener runs now. Returns unsubscribe. */
   onReady(listener: () => void): () => void;
 }
@@ -15,6 +21,9 @@ export interface PlayerController {
 interface YtPlayer {
   seekTo(seconds: number, allowSeekAhead: boolean): void;
   playVideo(): void;
+  pauseVideo(): void;
+  mute(): void;
+  unMute(): void;
   destroy(): void;
   getCurrentTime(): Json;
 }
@@ -39,6 +48,8 @@ interface YtPlayerOptions {
 interface TwitchPlayer {
   seek(seconds: number): void;
   play(): void;
+  pause(): void;
+  setMuted(muted: boolean): void;
   getCurrentTime(): Json;
   addEventListener(event: string, listener: () => void): void;
 }
@@ -64,6 +75,8 @@ declare global {
         READY: string;
         PLAY: string;
         PLAYING: string;
+        PAUSE: string;
+        ENDED: string;
       };
     };
   }
@@ -156,6 +169,7 @@ function YoutubePlayer({
     let playing = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
+    let muted = false;
     const listeners = new Set<() => void>();
 
     const noteState = (state: number) => {
@@ -195,6 +209,23 @@ function YoutubePlayer({
 
         return reported;
       },
+      play() {
+        if (ready) player?.playVideo();
+      },
+      pause() {
+        if (ready) player?.pauseVideo();
+      },
+      isPlaying() {
+        return playing;
+      },
+      setMuted(next) {
+        muted = next;
+
+        if (!ready || !player) return;
+
+        if (next) player.mute();
+        else player.unMute();
+      },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
@@ -225,6 +256,8 @@ function YoutubePlayer({
         events: {
           onReady: () => {
             ready = true;
+
+            if (muted) player?.mute();
 
             if (pending != null) {
               seekTarget = pending;
@@ -274,6 +307,8 @@ function TwitchVideoPlayer({
     let started = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
+    let playing = false;
+    let muted = false;
     const listeners = new Set<() => void>();
 
     const controller: PlayerController = {
@@ -308,6 +343,20 @@ function TwitchVideoPlayer({
 
         return reported;
       },
+      play() {
+        if (ready) player?.play();
+      },
+      pause() {
+        if (ready) player?.pause();
+      },
+      isPlaying() {
+        return playing;
+      },
+      setMuted(next) {
+        muted = next;
+
+        if (ready) player?.setMuted(next);
+      },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
@@ -336,10 +385,12 @@ function TwitchVideoPlayer({
         });
         player.addEventListener(Twitch.Player.READY, () => {
           ready = true;
+          player?.setMuted(muted);
           listeners.forEach((listener) => listener());
         });
         player.addEventListener(Twitch.Player.PLAYING, () => {
           started = true;
+          playing = true;
 
           if (pending != null) {
             seekTarget = pending;
@@ -348,6 +399,12 @@ function TwitchVideoPlayer({
           }
         });
         player.addEventListener(Twitch.Player.PLAY, () => track("VOD played"));
+        player.addEventListener(Twitch.Player.PAUSE, () => {
+          playing = false;
+        });
+        player.addEventListener(Twitch.Player.ENDED, () => {
+          playing = false;
+        });
       })
       .catch(() => {
         if (!cancelled) host.textContent = "The Twitch player could not be loaded.";
@@ -405,6 +462,17 @@ function FakePlayer({
       getCurrentTime() {
         return clock.time;
       },
+      play() {
+        clock.playing = true;
+        clock.last = performance.now();
+      },
+      pause() {
+        clock.playing = false;
+      },
+      isPlaying() {
+        return clock.playing;
+      },
+      setMuted() {},
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);

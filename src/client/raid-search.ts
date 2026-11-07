@@ -15,6 +15,9 @@ export const searchVodSchema = z
 
 export type SearchVod = z.output<typeof searchVodSchema>;
 
+/** Most VODs shown side by side, as on the replay inspector design. */
+export const MAX_PANES = 3;
+
 const youtubeIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
 
 /** The raid's VODs, and `pov`, the index of the one on screen. */
@@ -42,6 +45,8 @@ const reviewParams = {
   /** Spell ids shown as event lanes on the pull timeline. */
   spells: z.array(z.number().int()).optional(),
   player: z.literal("fake").optional(),
+  /** Indexes of the VODs shown side by side, oldest pick first. `pov` is the one with sound. */
+  side: z.array(z.number().int().min(0)).max(MAX_PANES).optional(),
 };
 
 const currentRaidSearch = z.object({ ...vodParams, ...reviewParams });
@@ -91,6 +96,8 @@ export function searchForPull(
   if (current.spells != null) next.spells = current.spells;
 
   if (current.player != null) next.player = current.player;
+
+  if (current.side != null) next.side = current.side;
 
   return next;
 }
@@ -160,4 +167,47 @@ export function searchWithVod(
   }
 
   return { vods: [...current.vods, vod], pov: current.vods.length };
+}
+
+/** The VODs on screen side by side, in range and once each. Fewer than two means one player. */
+export function sidePanes(search: RaidSearch): number[] {
+  const panes: number[] = [];
+
+  for (const index of search.side ?? []) {
+    if (index < search.vods.length && !panes.includes(index)) panes.push(index);
+  }
+
+  return panes.length >= 2 ? panes : [];
+}
+
+/** Side by side on: the VOD on screen plus the next one. Off: back to the one with sound. */
+export function searchWithSideBySide(current: RaidSearch, on: boolean): RaidSearch {
+  const { side: _previous, ...rest } = current;
+
+  if (!on) return rest;
+
+  const pov = activeVodIndex(current);
+  const other = current.vods.findIndex((_vod, at) => at !== pov);
+
+  return other < 0 ? rest : { ...rest, side: [pov, other] };
+}
+
+/**
+ * A chip clicked while side by side: a shown VOD leaves (keeping at least one), another joins
+ * and takes the sound. A fourth VOD pushes out the oldest pick.
+ */
+export function searchWithPaneToggled(current: RaidSearch, index: number): RaidSearch {
+  const panes = sidePanes(current);
+  const pov = activeVodIndex(current);
+
+  if (panes.includes(index)) {
+    if (panes.length <= 1) return current;
+    const rest = panes.filter((pane) => pane !== index);
+
+    return { ...current, side: rest, pov: pov === index ? (rest[0] ?? 0) : pov };
+  }
+
+  const kept = panes.length >= MAX_PANES ? panes.slice(1) : panes;
+
+  return { ...current, side: [...kept, index], pov: index };
 }
