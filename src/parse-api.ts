@@ -66,7 +66,19 @@ const reportSchema = z.object({
     .nullish()
     .catch(null),
   masterData: z
-    .object({ actors: z.array(actorSchema).nullish().catch(null) })
+    .object({
+      actors: z.array(actorSchema).nullish().catch(null),
+      abilities: z
+        .array(
+          z.object({
+            gameID: z.number(),
+            name: z.string(),
+            icon: z.string().nullish().catch(null),
+          }),
+        )
+        .nullish()
+        .catch(null),
+    })
     .nullish()
     .catch(null),
   fights: z.array(fightSchema),
@@ -118,10 +130,11 @@ const youtubeResponseSchema = z.object({
   ),
 });
 
-/** One entry of an events response. Deaths carry the killer; casts carry only the ability. */
+/** One entry of an events response. Deaths carry the killer; casts carry only the ability. A cast has a `begincast` and a `cast` entry. */
 const eventSchema = z.object({
   timestamp: z.number(),
   fight: z.number(),
+  type: z.string().catch(""),
   targetID: z.number().catch(-1),
   sourceID: z.number().catch(-1),
   abilityGameID: z.number().catch(0),

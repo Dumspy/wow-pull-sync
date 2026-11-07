@@ -1,4 +1,5 @@
-import type { ComponentProps } from "react";
+import { X } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -8,9 +9,15 @@ function FilterChip({
   label,
   swatchClassName,
   on = false,
+  icon,
+  removable = false,
   ...props
 }: Omit<ComponentProps<"button">, "children"> & {
   label: string;
+  /** Shown instead of the colour swatch. */
+  icon?: ReactNode;
+  /** Shows a × so it reads as something you click to remove. */
+  removable?: boolean;
   swatchClassName: string;
   on?: boolean;
 }) {
@@ -25,13 +32,16 @@ function FilterChip({
       )}
       {...props}
     >
-      <span
-        className={cn(
-          "size-2 rounded-xs border border-transparent",
-          on ? swatchClassName : "border-current bg-transparent",
-        )}
-      />
+      {icon ?? (
+        <span
+          className={cn(
+            "size-2 rounded-xs border border-transparent",
+            on ? swatchClassName : "border-current bg-transparent",
+          )}
+        />
+      )}
       {label}
+      {removable && <X aria-hidden="true" className="size-3 text-muted-foreground" />}
     </button>
   );
 }

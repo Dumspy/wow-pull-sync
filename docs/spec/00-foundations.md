@@ -1,6 +1,6 @@
 # Phase 0: Foundations
 
-**Status:** In review (PR 7 lint, PR 8 analytics)
+**Status:** Done (PR 7 lint, PR 8 analytics, both merged)
 
 ## Goal
 

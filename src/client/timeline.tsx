@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { EncounterPhases, Lane as LaneConfig, Player, Pull } from "../types";
+import type { Ability, EncounterPhases, Player, Pull } from "../types";
+import { SpellIcon } from "./components/spell-icon";
 import { FilterChip } from "./components/filter-chip";
 import { Lane, LaneMark, LaneSegment, Playhead, TimeAxis } from "./components/lane";
+import { Input } from "./components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
+import { Button } from "./components/ui/button";
 import { formatClock, formatPercent } from "./format";
 import type { PlayerController } from "./player";
 
@@ -34,7 +38,7 @@ export function usePlayhead(player: PlayerController | null): number {
   return time;
 }
 
-/** Event lane swatches, cycled in config order. */
+/** Event lane colours, cycled in the order spells were added. */
 const LANE_TONES = [
   { tone: "warning", swatch: "bg-warning" },
   { tone: "info", swatch: "bg-ring" },
@@ -47,6 +51,10 @@ const PHASE_FILLS = ["bg-ring", "bg-warning", "bg-class-warlock", "bg-success"] 
 
 /** Diamond marker for a single event, centred on its time. */
 const DIAMOND = "inset-y-auto top-1/2 size-2 min-w-0 -translate-x-1/2 -translate-y-1/2 rotate-45";
+
+/** Widens the click target of a thin event mark. */
+const EVENT_HIT =
+  "cursor-pointer before:absolute before:inset-y-0 before:-inset-x-1.5 before:content-['']";
 
 const DEATH_LABEL_ROWS = [4, 24, 44] as const;
 const MONO_CHAR_PX = 6.6;
@@ -80,6 +88,7 @@ interface PhaseBlock {
 interface DeathLabel {
   key: string;
   at: number;
+  atMs: number;
   text: string;
   top: number | null;
   flip: boolean;
@@ -87,7 +96,7 @@ interface DeathLabel {
 
 /** Puts each death's label in the first free row; labels that would collide stay unlabelled. */
 function layoutDeathLabels(
-  deaths: readonly { key: string; at: number; text: string }[],
+  deaths: readonly { key: string; at: number; atMs: number; text: string }[],
   trackWidth: number,
 ): DeathLabel[] {
   const rowEnds = DEATH_LABEL_ROWS.map(() => Number.NEGATIVE_INFINITY);
@@ -122,7 +131,9 @@ export function Timeline({
   playhead,
   players,
   encounterPhases,
-  lanes,
+  abilities,
+  spells,
+  onSpellsChange,
   onSeek,
 }: {
   source: VideoSource;
@@ -131,13 +142,15 @@ export function Timeline({
   playhead: number;
   players: Player[];
   encounterPhases: EncounterPhases[];
-  lanes: LaneConfig[];
+  abilities: Ability[];
+  spells: number[];
+  onSpellsChange: (spells: number[]) => void;
   onSeek: (seconds: number) => void;
 }) {
   const active = pulls.find((pull) => pull.fightId === activeId) ?? null;
 
   return (
-    <footer className="flex flex-col gap-3 border-t bg-card px-4 py-3">
+    <footer className="flex max-h-[40svh] flex-col gap-3 overflow-y-auto border-t bg-card px-4 py-3">
       {active ? (
         <PullLanes
           source={source}
@@ -145,7 +158,12 @@ export function Timeline({
           playhead={playhead}
           players={players}
           phases={encounterPhases.find((item) => item.encounterId === active.encounterId)}
-          lanes={lanes.filter((lane) => lane.encounterId === active.encounterId)}
+          catalog={spellCatalog(
+            pulls.filter((pull) => pull.encounterId === active.encounterId),
+            abilities,
+          )}
+          spells={spells}
+          onSpellsChange={onSpellsChange}
           onSeek={onSeek}
         />
       ) : (
@@ -161,7 +179,9 @@ function PullLanes({
   playhead,
   players,
   phases,
-  lanes,
+  catalog,
+  spells,
+  onSpellsChange,
   onSeek,
 }: {
   source: VideoSource;
@@ -169,10 +189,12 @@ function PullLanes({
   playhead: number;
   players: Player[];
   phases: EncounterPhases | undefined;
-  lanes: LaneConfig[];
+  catalog: CatalogSpell[];
+  spells: number[];
+  onSpellsChange: (spells: number[]) => void;
   onSeek: (seconds: number) => void;
 }) {
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const shown = shownSpells(catalog, spells);
   const start = pullToVideoSeconds(pull, source);
   const inVod = pullInSource(pull, source);
   const duration = Math.max(pull.durationMs, 1);
@@ -207,10 +229,17 @@ function PullLanes({
       .map((death) => ({
         key: `${death.playerId}:${death.atMs}`,
         at: at(death.atMs),
+        atMs: death.atMs,
         text: `${players.find((player) => player.id === death.playerId)?.name ?? "Unknown"} ${formatClock(death.atMs / 1000)}`,
       })),
     deathTrack.width,
   );
+
+  function seekToEvent(event: React.MouseEvent, atMs: number) {
+    event.stopPropagation();
+
+    if (inVod) onSeek(start + atMs / 1000);
+  }
 
   function seekFromClick(event: React.MouseEvent<HTMLDivElement>) {
     if (!inVod) return;
@@ -220,15 +249,12 @@ function PullLanes({
     onSeek(start + ((event.clientX - rect.left) / rect.width) * (duration / 1000));
   }
 
-  function toggle(id: string) {
-    setHidden((current) => {
-      const next = new Set(current);
-
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-
-      return next;
-    });
+  function toggle(spell: CatalogSpell) {
+    onSpellsChange(
+      isShown(spell, spells)
+        ? spells.filter((id) => !spell.ids.includes(id))
+        : [...spells, spell.id],
+    );
   }
 
   const result = pull.kill
@@ -247,19 +273,20 @@ function PullLanes({
           </span>
         </span>
         <span className="flex-1" />
-        {lanes.length > 0 ? (
-          <>
-            <span className="text-xs text-muted-foreground">Show events</span>
-            {lanes.map((lane, index) => (
-              <FilterChip
-                key={lane.id}
-                label={lane.label}
-                swatchClassName={LANE_TONES[index % LANE_TONES.length].swatch}
-                on={!hidden.has(lane.id)}
-                onClick={() => toggle(lane.id)}
-              />
-            ))}
-          </>
+        {shown.map((spell, index) => (
+          <FilterChip
+            key={spell.id}
+            label={spell.name}
+            icon={<SpellIcon icon={spell.icon} />}
+            swatchClassName={LANE_TONES[index % LANE_TONES.length].swatch}
+            on
+            removable
+            onClick={() => toggle(spell)}
+            title={`Remove ${spell.name} from the timeline`}
+          />
+        ))}
+        {catalog.length > 0 ? (
+          <SpellPicker catalog={catalog} selected={spells} onToggle={toggle} />
         ) : null}
       </div>
       <TimeAxis
@@ -305,7 +332,13 @@ function PullLanes({
       >
         {deathLabels.map((death) => (
           <span key={death.key}>
-            <LaneMark tone="destructive" from={death.at} className="inset-y-0 w-0.5" />
+            <LaneMark
+              tone="destructive"
+              from={death.at}
+              title={death.text}
+              className={`inset-y-0 w-0.5 ${EVENT_HIT}`}
+              onClick={(event) => seekToEvent(event, death.atMs)}
+            />
             {death.top == null ? null : (
               <span
                 className="pointer-events-none absolute font-mono text-[11px] whitespace-nowrap text-destructive-text"
@@ -323,32 +356,140 @@ function PullLanes({
         ))}
         <Playhead at={playheadAt} />
       </Lane>
-      {lanes
-        .filter((lane) => !hidden.has(lane.id))
-        .map((lane) => {
-          const tone = LANE_TONES[lanes.indexOf(lane) % LANE_TONES.length].tone;
-          const events = pull.lanes.find((item) => item.laneId === lane.id)?.events ?? [];
+      {shown.map((spell, index) => {
+        const name = spell.name;
+        const tone = LANE_TONES[index % LANE_TONES.length].tone;
 
-          return (
-            <Lane
-              key={lane.id}
-              label={lane.label}
-              className="cursor-pointer"
-              onClick={seekFromClick}
-            >
-              {events.map((event) => (
+        return (
+          <Lane
+            key={spell.id}
+            label={
+              <span className="flex items-center gap-1.5" title={name}>
+                <SpellIcon icon={spell.icon} />
+                <span className="truncate">{name}</span>
+              </span>
+            }
+            className="cursor-pointer"
+            onClick={seekFromClick}
+          >
+            {pull.casts
+              .filter((cast) => spell.ids.includes(cast.spellId))
+              .map((cast) => (
                 <LaneMark
-                  key={`${event.spellId}:${event.atMs}`}
+                  key={cast.atMs}
                   tone={tone}
-                  from={at(event.atMs)}
-                  title={`${event.spellId} · ${formatClock(event.atMs / 1000)}`}
-                  className={DIAMOND}
+                  from={at(cast.atMs)}
+                  title={`${name} · ${formatClock(cast.atMs / 1000)}`}
+                  className={`${DIAMOND} ${EVENT_HIT}`}
+                  onClick={(click) => seekToEvent(click, cast.atMs)}
                 />
               ))}
-              <Playhead at={playheadAt} />
-            </Lane>
-          );
-        })}
+            <Playhead at={playheadAt} />
+          </Lane>
+        );
+      })}
     </div>
+  );
+}
+
+/** One entry in the picker. Spells that share a name and icon are one entry; `id` is the lowest of them. */
+interface CatalogSpell {
+  id: number;
+  ids: number[];
+  name: string;
+  icon: string | null;
+}
+
+/** Every enemy spell cast in the given pulls, with spells that share a name and icon merged, by name. */
+function spellCatalog(pulls: Pull[], abilities: Ability[]): CatalogSpell[] {
+  const ids = [...new Set(pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)))].sort(
+    (a, b) => a - b,
+  );
+
+  const byName = new Map<string, CatalogSpell>();
+
+  for (const id of ids) {
+    const ability = abilities.find((item) => item.id === id);
+    const name = ability?.name ?? `Spell ${id}`;
+    const key = `${name}|${ability?.icon ?? ""}`;
+    const existing = byName.get(key);
+
+    if (existing) {
+      existing.ids.push(id);
+    } else {
+      byName.set(key, { id, ids: [id], name, icon: ability?.icon ?? null });
+    }
+  }
+
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function isShown(spell: CatalogSpell, spells: number[]): boolean {
+  return spell.ids.some((id) => spells.includes(id));
+}
+
+/** The picked entries, in the order they were picked. */
+function shownSpells(catalog: CatalogSpell[], spells: number[]): CatalogSpell[] {
+  const shown: CatalogSpell[] = [];
+
+  for (const id of spells) {
+    const spell = catalog.find((item) => item.ids.includes(id));
+
+    if (spell && !shown.includes(spell)) shown.push(spell);
+  }
+
+  return shown;
+}
+
+function SpellPicker({
+  catalog,
+  selected,
+  onToggle,
+}: {
+  catalog: CatalogSpell[];
+  selected: number[];
+  onToggle: (spell: CatalogSpell) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+
+  const matches = catalog.filter(
+    (spell) =>
+      needle === "" ||
+      spell.name.toLowerCase().includes(needle) ||
+      String(spell.id).includes(needle),
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger render={<Button type="button" size="sm" variant="outline" />}>
+        Add events
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 gap-2 p-2">
+        <Input
+          aria-label="Search spells"
+          placeholder="Search boss spells"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="max-h-64 overflow-y-auto">
+          {matches.length === 0 ? (
+            <p className="px-2 py-1.5 text-xs text-muted-foreground">No spells match.</p>
+          ) : null}
+          {matches.map((spell) => (
+            <button
+              key={spell.id}
+              type="button"
+              aria-pressed={isShown(spell, selected)}
+              onClick={() => onToggle(spell)}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent aria-pressed:bg-accent"
+            >
+              <SpellIcon icon={spell.icon} />
+              <span className="min-w-0 flex-1 truncate">{spell.name}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

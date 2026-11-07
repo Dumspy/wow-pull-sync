@@ -6,6 +6,8 @@ export const raidSearchSchema = z.object({
   pull: z.number().int().optional(),
   t: z.number().finite().optional(),
   offset: z.number().finite().optional(),
+  /** Spell ids shown as event lanes on the pull timeline. */
+  spells: z.array(z.number().int()).optional(),
   player: z.literal("fake").optional(),
 });
 
@@ -33,6 +35,8 @@ export function searchForPull(
 
   if (current.offset != null) next.offset = current.offset;
 
+  if (current.spells != null) next.spells = current.spells;
+
   if (current.player != null) next.player = current.player;
 
   return next;
@@ -43,4 +47,19 @@ export function searchWithOffset(current: RaidSearch, offset: number): RaidSearc
   const { offset: _previous, ...rest } = current;
 
   return offset === 0 ? rest : { ...rest, offset };
+}
+
+/** Search params for the overview and boss progress pages. */
+export const raidViewSearchSchema = z.object({
+  vod: raidSearchSchema.shape.vod,
+  offset: raidSearchSchema.shape.offset,
+});
+
+export type RaidViewSearch = z.output<typeof raidViewSearchSchema>;
+
+/** The search with the shown spells set, or dropped when none are left. */
+export function searchWithSpells(current: RaidSearch, spells: number[]): RaidSearch {
+  const { spells: _previous, ...rest } = current;
+
+  return spells.length === 0 ? rest : { ...rest, spells };
 }
