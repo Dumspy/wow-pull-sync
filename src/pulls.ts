@@ -1,7 +1,6 @@
 import type { Death } from "./contract";
-import { matchPullToVod } from "./match";
 import type { WclEvent } from "./parse-api";
-import type { Pull, ReportSummary, VodSummary } from "./types";
+import type { Pull, ReportSummary } from "./types";
 
 /** Events for one report: every player death, and every enemy cast. */
 export interface ReportEvents {
@@ -12,12 +11,7 @@ export interface ReportEvents {
 export const NO_EVENTS: ReportEvents = { deaths: [], casts: [] };
 
 /** Boss pulls only (`encounterID > 0`). Pull numbers restart for each boss. */
-export function buildPulls(
-  report: ReportSummary,
-  vod: VodSummary,
-  offsetSeconds: number,
-  events: ReportEvents = NO_EVENTS,
-): Pull[] {
+export function buildPulls(report: ReportSummary, events: ReportEvents = NO_EVENTS): Pull[] {
   const bosses = report.fights
     .filter((fight) => fight.encounterID > 0)
     .slice()
@@ -32,14 +26,6 @@ export function buildPulls(
   return bosses.map((fight) => {
     const pullNumber = (seen.get(fight.encounterID) ?? 0) + 1;
     seen.set(fight.encounterID, pullNumber);
-
-    const match = matchPullToVod({
-      reportStartMs: report.startTime,
-      fightStartMs: fight.startTime,
-      actualStartMs: vod.actualStartMs,
-      vodDurationSeconds: vod.durationSeconds,
-      offsetSeconds,
-    });
 
     const sinceStart = (timestamp: number) => Math.max(0, timestamp - fight.startTime);
 
@@ -81,8 +67,6 @@ export function buildPulls(
       bossPercentage: fight.bossPercentage,
       startedAt: report.startTime + fight.startTime,
       endedAt: report.startTime + fight.endTime,
-      vodSeconds: match.vodSeconds,
-      inVod: match.inVod,
       difficulty: fight.difficulty,
       fightPercentage: fight.fightPercentage,
       lastPhase: fight.lastPhase,

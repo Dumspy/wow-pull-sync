@@ -2,7 +2,7 @@ import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-import { parseReportCode, parseVideoId } from "../urls";
+import { parseReportCode, parseVodLink } from "../urls";
 import { Button } from "./components/ui/button";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { PageHeader } from "./components/page-header";
@@ -48,15 +48,21 @@ export function PastePage() {
       return;
     }
 
-    const videoId = parseVideoId(vodUrl);
+    const vod = parseVodLink(vodUrl);
 
-    if (!videoId) {
+    if (!vod) {
       setError("That doesn't look like a YouTube URL.");
 
       return;
     }
 
-    const search: RaidSearch = { vod: videoId };
+    if (vod.platform === "twitch") {
+      setError("Twitch VODs are not supported yet.");
+
+      return;
+    }
+
+    const search: RaidSearch = { vods: [vod] };
 
     if (devFakePlayer()) search.player = "fake";
 

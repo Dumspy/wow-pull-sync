@@ -8,9 +8,12 @@ import {
   fixtureYoutubeBody,
 } from "./fixtures";
 import { HttpError } from "./http-error";
+import { jsonBody } from "./json";
 import { matchPullToVod } from "./match";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
+import { pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
+import type { VodSummary } from "./types";
 
 /** Independently computed table for this report/VOD pair. */
 const expected = [
@@ -38,6 +41,16 @@ const expected = [
   [26, "Nymrissa Wavecaller", 1, true, "4:46", "0.01%", 9061.4, "2:31:01"],
 ] as const;
 
+function sourceFrom(vod: VodSummary, offset: number): VideoSource {
+  return {
+    kind: "youtube",
+    id: vod.videoId,
+    startedAt: vod.actualStartMs,
+    duration: vod.durationSeconds,
+    offset,
+  };
+}
+
 function percent(value: number): string {
   return `${value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}%`;
 }
@@ -63,7 +76,8 @@ describe("recorded raid night", () => {
   });
 
   it("matches the expected boss pulls and drops trash, including same-name trash", () => {
-    const pulls = buildPulls(report, vod, 0);
+    const pulls = buildPulls(report);
+    const source = sourceFrom(vod, 0);
     expect(pulls).toHaveLength(22);
     expect(report.fights.some((fight) => fight.encounterID === 0 && fight.kill === null)).toBe(
       true,
@@ -84,20 +98,21 @@ describe("recorded raid night", () => {
       expect(pull.bossPercentage).not.toBeNull();
       expect(percent(pull.bossPercentage ?? 0)).toBe(bossPercent);
       // The table prints one decimal. 1720.05 is the exact second for pull 2 and prints as 1720.0.
-      expect(Math.abs(pull.vodSeconds - vodSec)).toBeLessThan(0.051);
-      expect(formatClock(pull.vodSeconds)).toBe(timestamp);
-      expect(pull.inVod).toBe(true);
+      expect(Math.abs(pullToVideoSeconds(pull, source) - vodSec)).toBeLessThan(0.051);
+      expect(formatClock(pullToVideoSeconds(pull, source))).toBe(timestamp);
+      expect(pullInSource(pull, source)).toBe(true);
     });
     expect(pulls[0]?.encounterId).toBe(3492);
     expect(pulls.at(-1)?.encounterId).toBe(3379);
-    expect(pulls[0]?.vodSeconds).toBeCloseTo(1471.7, 1);
-    expect(formatClock(pulls[0]?.vodSeconds ?? 0)).toBe("24:32");
+    expect(pullToVideoSeconds(pulls[0]!, source)).toBeCloseTo(1471.7, 1);
+    expect(formatClock(pullToVideoSeconds(pulls[0]!, source))).toBe("24:32");
   });
 
   it("shifts every timestamp by the offset", () => {
-    const pulls = buildPulls(report, vod, 10);
-    expect(Math.round((pulls[0]?.vodSeconds ?? 0) * 10) / 10).toBe(1481.7);
-    expect(formatClock(pulls[0]?.vodSeconds ?? 0)).toBe("24:42");
+    const first = buildPulls(report)[0]!;
+    const seconds = pullToVideoSeconds(first, sourceFrom(vod, 10));
+    expect(Math.round(seconds * 10) / 10).toBe(1481.7);
+    expect(formatClock(seconds)).toBe("24:42");
   });
 });
 
@@ -111,11 +126,14 @@ describe("pulls outside the VOD", () => {
 
     expect(late.actualStartMs - Date.parse("2026-10-29T18:38:02Z")).toBe(30 * 60 * 1000);
     expect(late.durationSeconds).toBe(9495);
-    const pulls = buildPulls(report, late, 0);
-    expect(pulls[0]).toMatchObject({ fightId: 1, inVod: false });
-    expect(pulls[1]).toMatchObject({ fightId: 2, inVod: false });
-    expect(pulls[2]?.inVod).toBe(true);
-    expect(pulls[0]?.vodSeconds).toBeLessThan(0);
+    const pulls = buildPulls(report);
+    const source = sourceFrom(late, 0);
+    expect(pulls[0]?.fightId).toBe(1);
+    expect(pulls[1]?.fightId).toBe(2);
+    expect(pullInSource(pulls[0]!, source)).toBe(false);
+    expect(pullInSource(pulls[1]!, source)).toBe(false);
+    expect(pullInSource(pulls[2]!, source)).toBe(true);
+    expect(pullToVideoSeconds(pulls[0]!, source)).toBeLessThan(0);
   });
 });
 
@@ -142,7 +160,7 @@ describe("external response errors", () => {
   });
 
   it("rejects an empty YouTube list, a video with no length, and a bad start time", () => {
-    expect(() => readYoutubeVideo({ items: [] })).toThrow("No YouTube video found for that link.");
+    expect(() => readYoutubeVideo({ items: [] })).toThrow("We couldn't find this video.");
 
     expect(() =>
       readYoutubeVideo({
@@ -183,7 +201,10 @@ describe("youtube errors", () => {
 
       if (!(error instanceof HttpError)) return;
 
-      expect(error.message).toBe("That video is not a past live stream.");
+      expect(error.reason).toBe("not-stream");
+      expect(error.message).toBe(
+        "This isn't a recorded live stream. pull-sync needs a stream recording to line up with the log. Uploads and highlights have no start time.",
+      );
     }
   });
 
@@ -192,6 +213,25 @@ describe("youtube errors", () => {
     const parsed = z.object({ items: z.array(z.object({ id: z.string() })) }).parse(body);
 
     expect(parsed.items[0]?.id).toBe("abcdefghijk");
-    expect(() => readYoutubeVideo(body)).toThrow("That video is not a past live stream.");
+    expect(() => readYoutubeVideo(body)).toThrow("This isn't a recorded live stream.");
+  });
+
+  it("says a stream that is still running, or not started, is still live", () => {
+    const running = { actualStartTime: "2026-10-29T18:38:02Z" };
+    const scheduled = { scheduledStartTime: "2026-10-29T18:38:02Z" };
+
+    for (const liveStreamingDetails of [running, scheduled]) {
+      try {
+        readYoutubeVideo(jsonBody.parse({ items: [{ id: "BLJBhzLNt8w", liveStreamingDetails }] }));
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpError);
+
+        if (!(error instanceof HttpError)) return;
+
+        expect(error.status).toBe(400);
+        expect(error.reason).toBe("live");
+      }
+    }
   });
 });

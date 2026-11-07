@@ -88,8 +88,6 @@ export const pullSchema = z.object({
   bossPercentage: z.number().nullable(),
   startedAt: z.number(),
   endedAt: z.number(),
-  vodSeconds: z.number(),
-  inVod: z.boolean(),
   difficulty: z.number().nullable(),
   /** Lowest HP across all bosses, where `bossPercentage` is the main boss. */
   fightPercentage: z.number().nullable(),
@@ -104,14 +102,10 @@ export const pullSchema = z.object({
 
 export type Pull = z.output<typeof pullSchema>;
 
-/** `vodStartedAtMs` is wall-clock epoch milliseconds of video second 0. */
-export const pullSyncResponseSchema = z.object({
-  videoId: z.string(),
-  videoTitle: z.string(),
+/** Body of `POST /api/report`: the report, its roster and boss pulls. It knows nothing about VODs. */
+export const reportResponseSchema = z.object({
   reportCode: z.string(),
   reportTitle: z.string(),
-  vodStartedAtMs: z.number(),
-  vodDurationSeconds: z.number(),
   zone: zoneSchema.nullable(),
   guild: guildSchema.nullable(),
   /** Name of the Warcraft Logs user who uploaded the report. */
@@ -123,21 +117,34 @@ export const pullSyncResponseSchema = z.object({
   pulls: z.array(pullSchema),
 });
 
-export type PullSyncResponse = z.output<typeof pullSyncResponseSchema>;
+export type ReportResponse = z.output<typeof reportResponseSchema>;
 
-/** Body of `POST /api/pulls`. A missing or null offset is zero seconds. */
-export const pullRequestSchema = z.object({
-  reportUrl: z.string(),
-  vodUrl: z.string(),
-  offsetSeconds: z
-    .number()
-    .finite()
-    .nullish()
-    .transform((value) => value ?? 0),
+export const vodPlatformSchema = z.enum(["youtube", "twitch"]);
+
+export type VodPlatform = z.output<typeof vodPlatformSchema>;
+
+/** Body of `POST /api/vod`. `startedAtMs` is wall-clock epoch milliseconds of video second 0. */
+export const vodResponseSchema = z.object({
+  platform: vodPlatformSchema,
+  id: z.string(),
+  title: z.string(),
+  startedAtMs: z.number(),
+  durationSeconds: z.number(),
 });
 
-export type PullRequest = z.output<typeof pullRequestSchema>;
+export type VodResponse = z.output<typeof vodResponseSchema>;
+
+export const reportRequestSchema = z.object({ reportUrl: z.string() });
+
+export const vodRequestSchema = z.object({ vodUrl: z.string() });
+
+/** Why a VOD link can't be used. The Add VOD page picks its message from this. */
+export const vodErrorReasonSchema = z.enum(["unsupported", "not-found", "live", "not-stream"]);
+
+export type VodErrorReason = z.output<typeof vodErrorReasonSchema>;
 
 export interface ErrorResponse {
   error: string;
+  /** Set by `POST /api/vod` when the link itself is the problem. */
+  reason?: VodErrorReason;
 }

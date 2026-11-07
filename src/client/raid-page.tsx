@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, PullSyncResponse } from "../types";
+import type { Pull, ReportResponse, VodResponse } from "../types";
 import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { Dot } from "./components/dot";
@@ -15,26 +15,37 @@ import { formatClock, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
-import { searchForPull, searchWithOffset, searchWithSpells, type RaidSearch } from "./raid-search";
+import {
+  activeVod,
+  searchForPull,
+  searchWithOffset,
+  searchWithSpells,
+  viewSearch,
+  type RaidSearch,
+} from "./raid-search";
 import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
-  data,
+  report,
+  vod,
   search,
   initialOffsetText,
   onSelectPull,
   onReplaceSearch,
   onAnotherRaid,
 }: {
-  data: PullSyncResponse;
+  report: ReportResponse;
+  vod: VodResponse;
   search: RaidSearch;
   initialOffsetText: string;
   onSelectPull: (fightId: number, seconds: number | null) => void;
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
+  const shown = activeVod(search);
+
   const [offsetText, setOffsetText] = useState(
-    search.offset != null ? String(search.offset) : initialOffsetText,
+    shown.offset != null ? String(shown.offset) : initialOffsetText,
   );
 
   const [player, setPlayer] = useState<PlayerController | null>(null);
@@ -47,35 +58,35 @@ export function RaidPage({
 
   const source = useMemo<VideoSource>(
     () => ({
-      kind: "youtube",
-      id: data.videoId,
-      startedAt: data.vodStartedAtMs,
-      duration: data.vodDurationSeconds,
+      kind: vod.platform,
+      id: vod.id,
+      startedAt: vod.startedAtMs,
+      duration: vod.durationSeconds,
       offset: offsetSeconds,
     }),
-    [data.videoId, data.vodStartedAtMs, data.vodDurationSeconds, offsetSeconds],
+    [vod.platform, vod.id, vod.startedAtMs, vod.durationSeconds, offsetSeconds],
   );
 
-  const activePull = data.pulls.find((pull) => pull.fightId === search.pull) ?? null;
+  const activePull = report.pulls.find((pull) => pull.fightId === search.pull) ?? null;
 
   useEffect(() => {
-    track("raid loaded", { pull_count: data.pulls.length });
-  }, [data.reportCode, data.videoId, data.pulls.length]);
+    track("raid loaded", { pull_count: report.pulls.length });
+  }, [report.reportCode, vod.id, report.pulls.length]);
 
   const seededPull = useRef(false);
 
   useEffect(() => {
     if (seededPull.current || search.pull != null) return;
-    const first = data.pulls.find((pull) => pullInSource(pull, source)) ?? data.pulls[0];
+    const first = report.pulls.find((pull) => pullInSource(pull, source)) ?? report.pulls[0];
 
     if (!first) return;
     seededPull.current = true;
     onReplaceSearch(searchForPull(search, first.fightId, seekSeconds(first, source)));
-  }, [data.pulls, onReplaceSearch, search, source]);
+  }, [report.pulls, onReplaceSearch, search, source]);
 
   useEffect(() => {
     if (!player || search.pull == null) return;
-    const pull = data.pulls.find((item) => item.fightId === search.pull);
+    const pull = report.pulls.find((item) => item.fightId === search.pull);
 
     if (!pull || !pullInSource(pull, source)) return;
     const seconds = pullToVideoSeconds(pull, source);
@@ -83,7 +94,7 @@ export function RaidPage({
     return player.onReady(() => {
       player.seekTo(seconds);
     });
-  }, [player, source, data.pulls, search.pull]);
+  }, [player, source, report.pulls, search.pull]);
 
   function selectPull(pull: Pull) {
     track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill });
@@ -94,20 +105,21 @@ export function RaidPage({
   }
 
   function step(direction: -1 | 1) {
-    if (data.pulls.length === 0) return;
-    const index = data.pulls.findIndex((pull) => pull.fightId === search.pull);
+    if (report.pulls.length === 0) return;
+    const index = report.pulls.findIndex((pull) => pull.fightId === search.pull);
 
-    const nextIndex = index < 0 ? (direction === 1 ? 0 : data.pulls.length - 1) : index + direction;
+    const nextIndex =
+      index < 0 ? (direction === 1 ? 0 : report.pulls.length - 1) : index + direction;
 
-    const pull = data.pulls[nextIndex];
+    const pull = report.pulls[nextIndex];
 
     if (!pull) return;
     selectPull(pull);
   }
 
-  const index = data.pulls.findIndex((pull) => pull.fightId === search.pull);
+  const index = report.pulls.findIndex((pull) => pull.fightId === search.pull);
   const playhead = usePlayhead(player);
-  const kills = data.pulls.filter((pull) => pull.kill).length;
+  const kills = report.pulls.filter((pull) => pull.kill).length;
 
   function seek(seconds: number) {
     if (seconds < 0 || seconds > source.duration) return;
@@ -155,16 +167,16 @@ export function RaidPage({
       <AppHeader>
         <AppBrand />
         <div className="flex min-w-0 flex-col">
-          <h1 className="truncate text-[13px] font-semibold">{data.reportTitle}</h1>
+          <h1 className="truncate text-[13px] font-semibold">{report.reportTitle}</h1>
           <span className="truncate text-xs text-muted-foreground">
-            {[data.zone?.name, data.guild?.name].filter(Boolean).join(" · ") || data.videoTitle}
+            {[report.zone?.name, report.guild?.name].filter(Boolean).join(" · ") || vod.title}
           </span>
         </div>
         <StatChip tone="success" value={kills}>
           {kills === 1 ? "kill" : "kills"}
         </StatChip>
-        <StatChip tone="neutral" value={data.pulls.length - kills}>
-          {data.pulls.length - kills === 1 ? "wipe" : "wipes"}
+        <StatChip tone="neutral" value={report.pulls.length - kills}>
+          {report.pulls.length - kills === 1 ? "wipe" : "wipes"}
         </StatChip>
         <span className="flex-1" />
         <div className="flex items-center gap-1">
@@ -181,7 +193,7 @@ export function RaidPage({
             type="button"
             size="sm"
             variant="ghost"
-            disabled={index < 0 || index >= data.pulls.length - 1}
+            disabled={index < 0 || index >= report.pulls.length - 1}
             onClick={() => step(1)}
           >
             Next
@@ -189,15 +201,15 @@ export function RaidPage({
         </div>
         <Link
           to="/raid/$reportCode/overview"
-          params={{ reportCode: data.reportCode }}
-          search={{ vod: search.vod, offset: search.offset }}
+          params={{ reportCode: report.reportCode }}
+          search={viewSearch(search)}
           className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
           Overview
         </Link>
         <a
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-          href={reportHref(data.reportCode, activePull?.fightId ?? null)}
+          href={reportHref(report.reportCode, activePull?.fightId ?? null)}
           target="_blank"
           rel="noreferrer"
         >
@@ -211,12 +223,7 @@ export function RaidPage({
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
             <div className="absolute inset-0">
-              <RaidPlayer
-                videoId={source.id}
-                duration={source.duration}
-                fake={fakePlayer}
-                onController={onController}
-              />
+              <RaidPlayer source={source} fake={fakePlayer} onController={onController} />
             </div>
             {activePull ? (
               <OverlayLabel>
@@ -275,11 +282,11 @@ export function RaidPage({
         <aside className="my-3 mr-3 flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-card">
           <div className="flex h-9 shrink-0 items-center justify-between border-b pr-3 pl-4 text-xs text-muted-foreground">
             <span>Pulls</span>
-            <span className="font-mono">{data.pulls.length} total</span>
+            <span className="font-mono">{report.pulls.length} total</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <PullList
-              pulls={data.pulls}
+              pulls={report.pulls}
               source={source}
               activeId={search.pull ?? null}
               onSelect={selectPull}
@@ -289,12 +296,12 @@ export function RaidPage({
       </div>
       <Timeline
         source={source}
-        pulls={data.pulls}
+        pulls={report.pulls}
         activeId={search.pull ?? null}
         playhead={playhead}
-        players={data.players}
-        encounterPhases={data.encounterPhases}
-        abilities={data.abilities}
+        players={report.players}
+        encounterPhases={report.encounterPhases}
+        abilities={report.abilities}
         spells={search.spells ?? []}
         onSpellsChange={(spells) => onReplaceSearch(searchWithSpells(search, spells))}
         onSeek={seek}

@@ -1,8 +1,9 @@
 import { matchPullToVod } from "./match";
+import type { VodPlatform } from "./types";
 
 /** One recording of the night. Page state holds a list of these; only one is active for now. */
 export interface VideoSource {
-  kind: "youtube";
+  kind: VodPlatform;
   id: string;
   /** Wall-clock epoch milliseconds of video second 0. */
   startedAt: number;

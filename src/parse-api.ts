@@ -109,8 +109,8 @@ const youtubeResponseSchema = z.object({
       id: z.string().catch(""),
       liveStreamingDetails: z
         .object({
-          actualStartTime: z.string(),
-          actualEndTime: z.string(),
+          actualStartTime: z.string().nullish().catch(null),
+          actualEndTime: z.string().nullish().catch(null),
         })
         .nullish()
         .catch(null),
@@ -201,6 +201,16 @@ export function readEvents(body: Json): WclEvent[] {
   return events;
 }
 
+/** Messages for each `VodErrorReason`, worded as on the Add VOD design. */
+export const VOD_ERRORS = {
+  unsupported: "This link is not supported. pull-sync works with YouTube and Twitch recordings.",
+  "not-found":
+    "We couldn't find this video. Check the link, and that the video is public or unlisted.",
+  live: "This stream is still live. Add it once the stream has ended and the recording is available.",
+  "not-stream":
+    "This isn't a recorded live stream. pull-sync needs a stream recording to line up with the log. Uploads and highlights have no start time.",
+} as const;
+
 export function readYoutubeVideo(body: Json): VodSummary {
   const parsed = youtubeResponseSchema.safeParse(body);
 
@@ -210,14 +220,15 @@ export function readYoutubeVideo(body: Json): VodSummary {
 
   const item = parsed.data.items[0];
 
-  if (!item) {
-    throw new HttpError(400, "No YouTube video found for that link.");
-  }
+  if (!item) throw new HttpError(404, VOD_ERRORS["not-found"], "not-found");
 
   const live = item.liveStreamingDetails;
 
-  if (!live) {
-    throw new HttpError(400, "That video is not a past live stream.");
+  if (!live) throw new HttpError(400, VOD_ERRORS["not-stream"], "not-stream");
+
+  // A scheduled stream has no start yet; a running one has no end yet.
+  if (!live.actualStartTime || !live.actualEndTime) {
+    throw new HttpError(400, VOD_ERRORS.live, "live");
   }
 
   const duration = item.contentDetails ? parseIso8601Duration(item.contentDetails.duration) : null;
