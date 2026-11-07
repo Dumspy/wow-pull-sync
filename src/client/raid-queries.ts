@@ -3,7 +3,7 @@ import { hc } from "hono/client";
 
 import type { AppType } from "../api";
 import { reportResponseSchema, vodResponseSchema } from "../contract";
-import type { ReportResponse, VodResponse } from "../types";
+import type { ReportResponse, VodErrorReason, VodResponse } from "../types";
 import { vodLink, type VodRef } from "../urls";
 
 const client = hc<AppType>("/api");
@@ -18,11 +18,24 @@ export function reportQueryOptions(reportCode: string) {
   });
 }
 
+/** A VOD that failed to load. `reason` is set when the link itself is the problem. */
+export class VodLoadError extends Error {
+  constructor(
+    message: string,
+    readonly reason: VodErrorReason | null,
+  ) {
+    super(message);
+    this.name = "VodLoadError";
+  }
+}
+
 /** One VOD's start time and length. The offset is applied on the page, so it is not part of the key. */
 export function vodQueryOptions(vod: VodRef) {
   return queryOptions({
     queryKey: ["vod", vod.platform, vod.id] as const,
     retry: false,
+    // A failed VOD stays failed for the visit; the page shows why instead of retrying.
+    retryOnMount: false,
     staleTime: 60_000,
     queryFn: () => loadVod(vod),
   });
@@ -56,13 +69,16 @@ async function loadVod(vod: VodRef): Promise<VodResponse> {
   try {
     response = await client.vod.$post({ json: { vodUrl } });
   } catch {
-    throw new Error("Could not reach the app.");
+    throw new VodLoadError("Could not reach the app.", null);
   }
 
   if (!response.ok) {
     const error = await response.json();
 
-    throw new Error(error.error || "Something went wrong loading that VOD.");
+    throw new VodLoadError(
+      error.error || "Something went wrong loading that VOD.",
+      "reason" in error ? (error.reason ?? null) : null,
+    );
   }
 
   return vodResponseSchema.parse(await response.json());

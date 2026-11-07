@@ -12,7 +12,7 @@ import {
 import { matchPullToVod } from "./match";
 import { readReport, readTwitchVideo, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
+import { pullInSource, pullToVideoSeconds, sameMoment, type VideoSource } from "./source";
 
 function sourceFrom(
   vod: { videoId: string; actualStartMs: number; durationSeconds: number },
@@ -80,5 +80,34 @@ describe("pull to video seconds", () => {
 
     expect(formatClock(pullToVideoSeconds(pulls[0]!, source))).toBe("2:57");
     expect(pulls.every((pull) => pullInSource(pull, source))).toBe(true);
+  });
+
+  it("keeps the same moment of the night when switching from YouTube to Twitch and back", () => {
+    const youtube = sourceFrom(vod, 6);
+
+    const twitch: VideoSource = {
+      ...sourceFrom(readTwitchVideo(fixtureTwitchVideoBody(FIXTURE_TWITCH_VIDEO_ID)), -2),
+      kind: "twitch",
+    };
+
+    const first = buildPulls(report)[0]!;
+    const onYoutube = pullToVideoSeconds(first, youtube) + 30;
+    const onTwitch = sameMoment(onYoutube, youtube, twitch);
+
+    expect(onTwitch).toBeCloseTo(pullToVideoSeconds(first, twitch) + 30, 6);
+    expect(sameMoment(onTwitch ?? 0, twitch, youtube)).toBeCloseTo(onYoutube, 6);
+  });
+
+  it("has no same moment before a VOD starts or after it ends", () => {
+    const twitch: VideoSource = {
+      ...sourceFrom(readTwitchVideo(fixtureTwitchVideoBody(FIXTURE_TWITCH_VIDEO_ID)), 0),
+      kind: "twitch",
+    };
+
+    const youtube = sourceFrom(vod, 0);
+
+    // The YouTube stream starts about 21 minutes before the Twitch one and ends about 4 before it.
+    expect(sameMoment(60, youtube, twitch)).toBeNull();
+    expect(sameMoment(twitch.duration, twitch, youtube)).toBeNull();
   });
 });

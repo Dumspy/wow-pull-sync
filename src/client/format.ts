@@ -12,6 +12,11 @@ export function formatClock(totalSeconds: number): string {
   return `${sign}${minutes}:${ss}`;
 }
 
+/** A VOD's sync offset, signed with one decimal, e.g. "+6.0s" or "-1.2s". */
+export function formatOffset(seconds: number): string {
+  return `${seconds < 0 ? "-" : "+"}${Math.abs(seconds).toFixed(1)}s`;
+}
+
 /** Exact seek target, to the millisecond. */
 export function formatSeconds(totalSeconds: number): string {
   return (Math.round(totalSeconds * 1000) / 1000).toFixed(3);

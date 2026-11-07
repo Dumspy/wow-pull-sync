@@ -1,33 +1,35 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, ReportResponse, VodResponse } from "../types";
+import { pullSecondsIn, sameMoment, type VideoSource } from "../source";
+import type { Pull, ReportResponse } from "../types";
 import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { Dot } from "./components/dot";
 import { OverlayLabel } from "./components/overlay-label";
 import { StatChip } from "./components/stat-chip";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
+import { VodChip } from "./components/vod-chip";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Kbd } from "./components/ui/kbd";
-import { formatClock, formatPercent } from "./format";
+import { formatClock, formatOffset, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
 import {
-  activeVod,
+  activeVodIndex,
   searchForPull,
   searchWithOffset,
   searchWithSpells,
   viewSearch,
   type RaidSearch,
 } from "./raid-search";
+import { useRaidVods, type RaidVod } from "./raid-vods";
 import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
   report,
-  vod,
   search,
   initialOffsetText,
   onSelectPull,
@@ -35,18 +37,23 @@ export function RaidPage({
   onAnotherRaid,
 }: {
   report: ReportResponse;
-  vod: VodResponse;
   search: RaidSearch;
   initialOffsetText: string;
   onSelectPull: (fightId: number, seconds: number | null) => void;
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
-  const shown = activeVod(search);
+  const vods = useRaidVods(search.vods, report.players);
+  const activeIndex = activeVodIndex(search);
+  // SAFETY: the search schema keeps at least one VOD and activeVodIndex stays in range.
+  const shown = vods[activeIndex] as RaidVod;
 
   const [offsetText, setOffsetText] = useState(
-    shown.offset != null ? String(shown.offset) : initialOffsetText,
+    shown.ref.offset != null ? String(shown.ref.offset) : initialOffsetText,
   );
+
+  /** Where to put the next VOD's player after a switch, so the moment of the pull stays put. */
+  const resumeAt = useRef<number | null>(null);
 
   const [player, setPlayer] = useState<PlayerController | null>(null);
   const fakePlayer = devFakePlayer();
@@ -56,52 +63,59 @@ export function RaidPage({
     setPlayer(next);
   }, []);
 
-  const source = useMemo<VideoSource>(
-    () => ({
-      kind: vod.platform,
-      id: vod.id,
-      startedAt: vod.startedAtMs,
-      duration: vod.durationSeconds,
-      offset: offsetSeconds,
-    }),
-    [vod.platform, vod.id, vod.startedAtMs, vod.durationSeconds, offsetSeconds],
+  const loaded = shown.source;
+  const kind = loaded?.kind;
+  const videoId = loaded?.id;
+  const startedAt = loaded?.startedAt;
+  const duration = loaded?.duration;
+
+  // `shown.source` is rebuilt every render, so the memo keys on its fields.
+  const source = useMemo<VideoSource | null>(
+    () =>
+      kind != null && videoId != null && startedAt != null && duration != null
+        ? { kind, id: videoId, startedAt, duration, offset: offsetSeconds }
+        : null,
+    [kind, videoId, startedAt, duration, offsetSeconds],
   );
 
   const activePull = report.pulls.find((pull) => pull.fightId === search.pull) ?? null;
 
   useEffect(() => {
     track("raid loaded", { pull_count: report.pulls.length });
-  }, [report.reportCode, vod.id, report.pulls.length]);
+  }, [report.reportCode, report.pulls.length]);
 
   const seededPull = useRef(false);
 
   useEffect(() => {
-    if (seededPull.current || search.pull != null) return;
-    const first = report.pulls.find((pull) => pullInSource(pull, source)) ?? report.pulls[0];
+    if (seededPull.current || search.pull != null || shown.status === "loading") return;
+
+    const first =
+      report.pulls.find((pull) => pullSecondsIn(pull, source) != null) ?? report.pulls[0];
 
     if (!first) return;
     seededPull.current = true;
     onReplaceSearch(searchForPull(search, first.fightId, seekSeconds(first, source)));
-  }, [report.pulls, onReplaceSearch, search, source]);
+  }, [report.pulls, onReplaceSearch, search, source, shown.status]);
 
   useEffect(() => {
-    if (!player || search.pull == null) return;
+    if (!player) return;
     const pull = report.pulls.find((item) => item.fightId === search.pull);
+    const seconds = resumeAt.current ?? (pull ? pullSecondsIn(pull, source) : null);
 
-    if (!pull || !pullInSource(pull, source)) return;
-    const seconds = pullToVideoSeconds(pull, source);
+    if (seconds == null) return;
 
     return player.onReady(() => {
+      resumeAt.current = null;
       player.seekTo(seconds);
     });
   }, [player, source, report.pulls, search.pull]);
 
   function selectPull(pull: Pull) {
     track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill });
-    const seconds = seekSeconds(pull, source);
+    const exact = pullSecondsIn(pull, source);
 
-    if (seconds != null) player?.seekTo(pullToVideoSeconds(pull, source));
-    onSelectPull(pull.fightId, seconds);
+    if (exact != null) player?.seekTo(exact);
+    onSelectPull(pull.fightId, exact == null ? null : Math.round(exact));
   }
 
   function step(direction: -1 | 1) {
@@ -122,13 +136,30 @@ export function RaidPage({
   const kills = report.pulls.filter((pull) => pull.kill).length;
 
   function seek(seconds: number) {
-    if (seconds < 0 || seconds > source.duration) return;
+    if (!source || seconds < 0 || seconds > source.duration) return;
     player?.seekTo(seconds);
   }
 
+  /** Show another VOD at the same wall-clock moment, or at the pull start if it has no footage then. */
+  function switchVod(next: RaidVod) {
+    if (next.index === activeIndex) return;
+    resumeAt.current = source && next.source ? sameMoment(playhead, source, next.source) : null;
+
+    track("VOD switched", { platform: next.ref.platform });
+    setOffsetText(String(next.ref.offset ?? 0));
+    // Drop the old player now; its controller must not take the new VOD's seek.
+    setPlayer(null);
+    // `t` is the pull start in the VOD on screen, so it follows the switch.
+    const { t: _previous, ...rest } = search;
+    const t = activePull ? seekSeconds(activePull, next.source) : null;
+
+    onReplaceSearch(t == null ? { ...rest, pov: next.index } : { ...rest, pov: next.index, t });
+  }
+
   function nextDeath() {
-    if (!activePull || !pullInSource(activePull, source)) return;
-    const start = pullToVideoSeconds(activePull, source);
+    const start = activePull ? pullSecondsIn(activePull, source) : null;
+
+    if (!activePull || start == null) return;
 
     const next = activePull.deaths
       .map((death) => start + death.atMs / 1000)
@@ -159,8 +190,7 @@ export function RaidPage({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const activeInVod = activePull ? pullInSource(activePull, source) : false;
-  const pullStart = activePull && activeInVod ? pullToVideoSeconds(activePull, source) : null;
+  const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
 
   return (
     <div className="flex h-svh flex-col bg-background">
@@ -169,7 +199,13 @@ export function RaidPage({
         <div className="flex min-w-0 flex-col">
           <h1 className="truncate text-[13px] font-semibold">{report.reportTitle}</h1>
           <span className="truncate text-xs text-muted-foreground">
-            {[report.zone?.name, report.guild?.name].filter(Boolean).join(" · ") || vod.title}
+            {[
+              report.zone?.name,
+              report.guild?.name,
+              vods.length === 1 ? "1 VOD" : `${vods.length} VODs`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         </div>
         <StatChip tone="success" value={kills}>
@@ -221,13 +257,58 @@ export function RaidPage({
       </AppHeader>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+          <div className="flex flex-wrap items-center gap-2" aria-label="VODs" role="group">
+            <span className="text-xs text-muted-foreground">VODs</span>
+            {vods.map((vod) => {
+              const active = vod.index === activeIndex;
+              const offset = active ? offsetSeconds : (vod.ref.offset ?? 0);
+
+              const covers =
+                vod.source && activePull
+                  ? pullSecondsIn(activePull, { ...vod.source, offset }) != null
+                  : undefined;
+
+              return (
+                <VodChip
+                  key={`${vod.ref.platform}:${vod.ref.id}:${vod.index}`}
+                  name={vod.name}
+                  platform={vod.platformLabel}
+                  wowClass={vod.wowClass}
+                  offset={formatOffset(offset)}
+                  covers={covers}
+                  expired={vod.status === "expired"}
+                  active={active}
+                  onClick={() => switchVod(vod)}
+                />
+              );
+            })}
+          </div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
-            <div className="absolute inset-0">
-              <RaidPlayer source={source} fake={fakePlayer} onController={onController} />
-            </div>
+            {source ? (
+              <div className="absolute inset-0">
+                <RaidPlayer
+                  key={`${source.kind}:${source.id}`}
+                  source={source}
+                  fake={fakePlayer}
+                  onController={onController}
+                />
+              </div>
+            ) : (
+              <VodUnavailable vod={shown} />
+            )}
+            {source && activePull && pullStart == null ? (
+              <Empty className="absolute inset-0 border-0 bg-black">
+                <EmptyHeader>
+                  <EmptyTitle>No footage for this pull</EmptyTitle>
+                  <EmptyDescription>Pick another pull or VOD.</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            ) : null}
             {activePull ? (
               <OverlayLabel>
                 <Dot tone={activePull.kill ? "success" : "neutral"} />
+                <span className="font-medium">{shown.name}</span>
+                <span className="text-muted-foreground">{shown.platformLabel}</span>
                 <span className="text-soft-foreground">{pullSummary(activePull)}</span>
               </OverlayLabel>
             ) : null}
@@ -235,7 +316,7 @@ export function RaidPage({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border bg-card px-4 py-2 font-mono text-xs tabular-nums">
             <span className="text-[13px]">
               {formatClock(playhead)}
-              <span className="text-muted-foreground"> / {formatClock(source.duration)}</span>
+              <span className="text-muted-foreground"> / {formatClock(source?.duration ?? 0)}</span>
             </span>
             {activePull ? (
               <span className="text-muted-foreground">
@@ -252,9 +333,9 @@ export function RaidPage({
               </span>
             ) : null}
             <label className="inline-flex items-center gap-2 text-muted-foreground">
-              Offset
+              {shown.name} offset
               <Input
-                aria-label="Offset in seconds"
+                aria-label={`Offset in seconds for ${shown.name}`}
                 type="number"
                 step="1"
                 value={offsetText}
@@ -319,10 +400,45 @@ function offsetNumber(offsetText: string): number {
   return next;
 }
 
-function seekSeconds(pull: Pull, source: VideoSource): number | null {
-  if (!pullInSource(pull, source)) return null;
+function seekSeconds(pull: Pull, source: VideoSource | null): number | null {
+  const seconds = pullSecondsIn(pull, source);
 
-  return Math.round(pullToVideoSeconds(pull, source));
+  return seconds == null ? null : Math.round(seconds);
+}
+
+/** The player area when the VOD on screen can't play: still loading, gone, or failed. */
+function VodUnavailable({ vod }: { vod: RaidVod }) {
+  if (vod.status === "loading") {
+    return (
+      <Empty className="absolute inset-0 border-0">
+        <EmptyHeader>
+          <EmptyTitle>Loading VOD…</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  if (vod.status === "expired") {
+    return (
+      <Empty className="absolute inset-0 border-0">
+        <EmptyHeader>
+          <EmptyTitle>VOD expired</EmptyTitle>
+          <EmptyDescription>
+            {vod.platformLabel} removed this recording. The log and timeline still work.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
+  return (
+    <Empty className="absolute inset-0 border-0">
+      <EmptyHeader>
+        <EmptyTitle>This VOD could not be loaded</EmptyTitle>
+        <EmptyDescription>{vod.error}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
 }
 
 function reportHref(code: string, fightId: number | null): string {

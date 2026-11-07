@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
+import { pullSecondsIn, type VideoSource } from "../source";
 import type { Ability, EncounterPhases, Player, Pull } from "../types";
 import { SpellIcon } from "./components/spell-icon";
 import { FilterChip } from "./components/filter-chip";
@@ -136,7 +136,7 @@ export function Timeline({
   onSpellsChange,
   onSeek,
 }: {
-  source: VideoSource;
+  source: VideoSource | null;
   pulls: Pull[];
   activeId: number | null;
   playhead: number;
@@ -184,7 +184,7 @@ function PullLanes({
   onSpellsChange,
   onSeek,
 }: {
-  source: VideoSource;
+  source: VideoSource | null;
   pull: Pull;
   playhead: number;
   players: Player[];
@@ -195,8 +195,9 @@ function PullLanes({
   onSeek: (seconds: number) => void;
 }) {
   const shown = shownSpells(catalog, spells);
-  const start = pullToVideoSeconds(pull, source);
-  const inVod = pullInSource(pull, source);
+  const covered = pullSecondsIn(pull, source);
+  const start = covered ?? 0;
+  const inVod = covered != null;
   const duration = Math.max(pull.durationMs, 1);
   const at = (ms: number) => clampPercent((ms / duration) * 100);
   const playheadAt = at((playhead - start) * 1000);

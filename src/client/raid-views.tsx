@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, ReportResponse, VodResponse } from "../types";
+import { pullSecondsIn, type VideoSource } from "../source";
+import type { Pull, ReportResponse } from "../types";
 import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { BossSection } from "./components/boss-section";
@@ -12,23 +12,21 @@ import { StatStrip, StatTile } from "./components/stat-strip";
 import { buttonVariants } from "./components/ui/button";
 import { formatClock } from "./format";
 import { formatSpan, hpLeft, summarizeBosses, type BossSummary } from "./pull-view";
-import { activeVod, searchForPull, type RaidViewSearch } from "./raid-search";
+import { activeVodIndex, searchForPull, type RaidViewSearch } from "./raid-search";
+import { useRaidVods } from "./raid-vods";
 
-function videoSource(vod: VodResponse, offset: number): VideoSource {
-  return {
-    kind: vod.platform,
-    id: vod.id,
-    startedAt: vod.startedAtMs,
-    duration: vod.durationSeconds,
-    offset,
-  };
+/** The VOD on screen in the inspector. Null while it loads, or when it failed. */
+function useActiveSource(report: ReportResponse, search: RaidViewSearch): VideoSource | null {
+  const vods = useRaidVods(search.vods, report.players);
+
+  return vods[activeVodIndex(search)]?.source ?? null;
 }
 
 /** Review-page search for a pull, so a link lands on it with the video seeked. */
-function reviewSearch(search: RaidViewSearch, pull: Pull, source: VideoSource) {
-  const seconds = pullInSource(pull, source) ? Math.round(pullToVideoSeconds(pull, source)) : null;
+function reviewSearch(search: RaidViewSearch, pull: Pull, source: VideoSource | null) {
+  const seconds = pullSecondsIn(pull, source);
 
-  return searchForPull(search, pull.fightId, seconds);
+  return searchForPull(search, pull.fightId, seconds == null ? null : Math.round(seconds));
 }
 
 function ViewHeader({
@@ -85,7 +83,7 @@ function PullRows({
   pulls: Pull[];
   report: ReportResponse;
   search: RaidViewSearch;
-  source: VideoSource;
+  source: VideoSource | null;
   /** Cut a long list to the first few rows with a button to show the rest. */
   collapsible?: boolean;
 }) {
@@ -119,7 +117,7 @@ function PullRowList({
   pulls: Pull[];
   report: ReportResponse;
   search: RaidViewSearch;
-  source: VideoSource;
+  source: VideoSource | null;
 }) {
   return pulls.map((pull) => (
     <PullRow
@@ -128,7 +126,7 @@ function PullRowList({
       kill={pull.kill}
       hp={hpLeft(pull)}
       duration={formatClock(pull.durationMs / 1000)}
-      className={pullInSource(pull, source) ? undefined : "opacity-45"}
+      className={pullSecondsIn(pull, source) == null ? "opacity-45" : undefined}
       render={
         <Link
           to="/raid/$reportCode"
@@ -143,14 +141,12 @@ function PullRowList({
 
 export function OverviewPage({
   report,
-  vod,
   search,
 }: {
   report: ReportResponse;
-  vod: VodResponse;
   search: RaidViewSearch;
 }) {
-  const source = videoSource(vod, activeVod(search).offset ?? 0);
+  const source = useActiveSource(report, search);
   const bosses = summarizeBosses(report.pulls);
   const kills = report.pulls.filter((pull) => pull.kill).length;
   const totalMs = report.pulls.reduce((sum, pull) => sum + pull.durationMs, 0);
@@ -206,16 +202,14 @@ export function OverviewPage({
 
 export function BossProgressPage({
   report,
-  vod,
   search,
   encounterId,
 }: {
   report: ReportResponse;
-  vod: VodResponse;
   search: RaidViewSearch;
   encounterId: number;
 }) {
-  const source = videoSource(vod, activeVod(search).offset ?? 0);
+  const source = useActiveSource(report, search);
   const bosses = summarizeBosses(report.pulls);
   const boss = bosses.find((item) => item.encounterId === encounterId);
 
