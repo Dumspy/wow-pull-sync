@@ -23,7 +23,7 @@ import {
   type RaidSearch,
 } from "./raid-search";
 import { BossProgressPage, OverviewPage } from "./raid-views";
-import { LoadingRaid, RouteFailure } from "./route-status";
+import { LoadingRaid, NotFoundPage, RouteFailure } from "./route-status";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -34,7 +34,7 @@ const reportCodeSchema = z.string().regex(/^[A-Za-z0-9]+$/);
 export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   errorComponent: RouteFailure,
-  notFoundComponent: MissingPage,
+  notFoundComponent: NotFoundPage,
 });
 
 function RootLayout() {
@@ -44,10 +44,6 @@ function RootLayout() {
       <Devtools />
     </>
   );
-}
-
-function MissingPage() {
-  return <RouteFailure error={new Error("That page doesn't exist.")} reset={() => undefined} />;
 }
 
 const indexRoute = createRoute({
