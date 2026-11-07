@@ -14,7 +14,7 @@ import { formatClock, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
-import { searchForPull, type RaidSearch } from "./raid-search";
+import { searchForPull, searchWithOffset, type RaidSearch } from "./raid-search";
 import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
@@ -32,7 +32,7 @@ export function RaidPage({
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
-  const [offsetText, setOffsetText] = useState(initialOffsetText);
+  const [offsetText, setOffsetText] = useState(search.offset != null ? String(search.offset) : initialOffsetText);
   const [player, setPlayer] = useState<PlayerController | null>(null);
   const fakePlayer = devFakePlayer();
   const offsetSeconds = offsetNumber(offsetText);
@@ -239,7 +239,10 @@ export function RaidPage({
                 type="number"
                 step="1"
                 value={offsetText}
-                onChange={(event) => setOffsetText(event.target.value)}
+                onChange={(event) => {
+                  setOffsetText(event.target.value);
+                  onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
+                }}
                 className="h-6 w-20 px-2 text-right font-mono text-xs"
               />
             </label>
