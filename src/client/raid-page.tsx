@@ -314,10 +314,12 @@ export function RaidPage({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border bg-card px-4 py-2 font-mono text-xs tabular-nums">
-            <span className="text-[13px]">
-              {formatClock(playhead)}
-              <span className="text-muted-foreground"> / {formatClock(source?.duration ?? 0)}</span>
-            </span>
+            {source ? (
+              <span className="text-[13px]">
+                {formatClock(playhead)}
+                <span className="text-muted-foreground"> / {formatClock(source.duration)}</span>
+              </span>
+            ) : null}
             {activePull ? (
               <span className="text-muted-foreground">
                 pull <span className="text-foreground">#{activePull.pullNumber}</span>

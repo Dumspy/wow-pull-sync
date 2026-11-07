@@ -63,6 +63,7 @@ declare global {
         new (element: HTMLElement, options: TwitchPlayerOptions): TwitchPlayer;
         READY: string;
         PLAY: string;
+        PLAYING: string;
       };
     };
   }
@@ -269,6 +270,8 @@ function TwitchVideoPlayer({
     let cancelled = false;
     let player: TwitchPlayer | null = null;
     let ready = false;
+    // Twitch ignores seek() until playback has started, and can't autoplay without a click.
+    let started = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
     const listeners = new Set<() => void>();
@@ -277,15 +280,18 @@ function TwitchVideoPlayer({
       seekTo(seconds) {
         seekTarget = seconds;
 
-        if (ready && player) {
+        if (ready && player && started) {
           player.seek(seconds);
           player.play();
         } else {
+          // Applied on PLAYING, whether our play() or the viewer's click starts it.
           pending = seconds;
+
+          if (ready) player?.play();
         }
       },
       getCurrentTime() {
-        if (!ready || !player) return seekTarget ?? pending ?? 0;
+        if (!ready || !player || !started) return seekTarget ?? pending ?? 0;
         let reported = 0;
 
         try {
@@ -330,14 +336,16 @@ function TwitchVideoPlayer({
         });
         player.addEventListener(Twitch.Player.READY, () => {
           ready = true;
+          listeners.forEach((listener) => listener());
+        });
+        player.addEventListener(Twitch.Player.PLAYING, () => {
+          started = true;
 
           if (pending != null) {
             seekTarget = pending;
             player?.seek(pending);
             pending = null;
           }
-
-          listeners.forEach((listener) => listener());
         });
         player.addEventListener(Twitch.Player.PLAY, () => track("VOD played"));
       })
