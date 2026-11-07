@@ -22,8 +22,3 @@ export function currentSentryRelease(): string {
 
   return __SENTRY_RELEASE__;
 }
-
-/** The debug routes exist on local dev and preview builds. Production returns 404. */
-export function sentryDebugEnabled(environment: SentryEnvironment): boolean {
-  return environment === "development" || environment === "preview";
-}

@@ -3,11 +3,9 @@ import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 
 import { initAnalytics } from "./analytics";
-import { DebugSentry } from "./debug-sentry";
 import { AppRouter } from "./router";
 import { initSentry } from "./sentry";
 import { SentryFallback } from "./sentry-fallback";
-import { currentSentryEnvironment, sentryDebugEnabled } from "../sentry-build";
 import "../styles.css";
 
 initAnalytics();
@@ -22,17 +20,7 @@ function Theme() {
     document.documentElement.style.colorScheme = "dark";
   }, []);
 
-  // The router catches route errors with its own screen. This page sits outside
-  // it so the throw reaches Sentry.ErrorBoundary. Production has no page here.
-  if (debugSentryPage()) return <DebugSentry />;
-
   return <AppRouter />;
-}
-
-function debugSentryPage(): boolean {
-  if (!sentryDebugEnabled(currentSentryEnvironment())) return false;
-
-  return window.location.pathname === "/debug-sentry";
 }
 
 createRoot(document.getElementById("root")!, {
