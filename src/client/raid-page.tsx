@@ -3,15 +3,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
 import type { Pull, PullSyncResponse } from "../types";
 import { track } from "./analytics";
+import { AppBrand, AppHeader } from "./components/app-header";
+import { Dot } from "./components/dot";
+import { OverlayLabel } from "./components/overlay-label";
+import { StatChip } from "./components/stat-chip";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { Label } from "./components/ui/label";
-import { formatPercent } from "./format";
+import { Kbd } from "./components/ui/kbd";
+import { formatClock, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
 import { searchForPull, type RaidSearch } from "./raid-search";
-import { Timeline, type TimelineMode } from "./timeline";
+import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
   data,
@@ -29,7 +33,6 @@ export function RaidPage({
   onAnotherRaid: (offsetText: string) => void;
 }) {
   const [offsetText, setOffsetText] = useState(initialOffsetText);
-  const [timelineMode, setTimelineMode] = useState<TimelineMode>("night");
   const [player, setPlayer] = useState<PlayerController | null>(null);
   const fakePlayer = devFakePlayer();
   const offsetSeconds = offsetNumber(offsetText);
@@ -99,14 +102,67 @@ export function RaidPage({
   }
 
   const index = data.pulls.findIndex((pull) => pull.fightId === search.pull);
+  const playhead = usePlayhead(player);
+  const kills = data.pulls.filter((pull) => pull.kill).length;
+
+  function seek(seconds: number) {
+    if (seconds < 0 || seconds > source.duration) return;
+    player?.seekTo(seconds);
+  }
+
+  function nextDeath() {
+    if (!activePull || !pullInSource(activePull, source)) return;
+    const start = pullToVideoSeconds(activePull, source);
+
+    const next = activePull.deaths
+      .map((death) => start + death.atMs / 1000)
+      .sort((a, b) => a - b)
+      .find((seconds) => seconds > playhead + 0.5);
+
+    if (next != null) seek(next);
+  }
+
+  const shortcuts = useRef({ step, nextDeath });
+  shortcuts.current = { step, nextDeath };
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.target instanceof Element && event.target.closest("input, textarea, select")) {
+        return;
+      }
+
+      if (event.key === "j") shortcuts.current.step(-1);
+      else if (event.key === "k") shortcuts.current.step(1);
+      else if (event.key === "d") shortcuts.current.nextDeath();
+    }
+
+    window.addEventListener("keydown", onKey);
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const activeInVod = activePull ? pullInSource(activePull, source) : false;
+  const pullStart = activePull && activeInVod ? pullToVideoSeconds(activePull, source) : null;
 
   return (
     <div className="flex h-svh flex-col bg-background">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <h1 className="truncate text-sm font-medium">{data.reportTitle}</h1>
-          <span className="truncate text-xs text-muted-foreground">{data.videoTitle}</span>
+      <AppHeader>
+        <AppBrand />
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate text-[13px] font-semibold">{data.reportTitle}</h1>
+          <span className="truncate text-xs text-muted-foreground">
+            {[data.zone?.name, data.guild?.name].filter(Boolean).join(" · ") || data.videoTitle}
+          </span>
         </div>
+        <StatChip tone="success" value={kills}>
+          kill
+        </StatChip>
+        <StatChip tone="neutral" value={data.pulls.length - kills}>
+          wipes
+        </StatChip>
+        <span className="flex-1" />
         <div className="flex items-center gap-1">
           <Button
             type="button"
@@ -117,9 +173,6 @@ export function RaidPage({
           >
             Prev
           </Button>
-          <p className="max-w-56 truncate text-xs">
-            {activePull ? pullSummary(activePull) : "No pull"}
-          </p>
           <Button
             type="button"
             size="sm"
@@ -130,17 +183,6 @@ export function RaidPage({
             Next
           </Button>
         </div>
-        <Label className="text-muted-foreground">
-          Offset
-          <Input
-            aria-label="Offset in seconds"
-            type="number"
-            step="1"
-            value={offsetText}
-            onChange={(event) => setOffsetText(event.target.value)}
-            className="h-7 w-16 px-1.5"
-          />
-        </Label>
         <a
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
           href={reportHref(data.reportCode, activePull?.fightId ?? null)}
@@ -152,11 +194,73 @@ export function RaidPage({
         <Button type="button" size="sm" variant="outline" onClick={() => onAnotherRaid(offsetText)}>
           Load another raid
         </Button>
-      </header>
+      </AppHeader>
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card">
-          <div className="border-b border-dashed border-border px-2 py-2 text-xs text-muted-foreground">
-            Sources
+        <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-black">
+            <div className="absolute inset-0">
+              <RaidPlayer
+                videoId={source.id}
+                duration={source.duration}
+                fake={fakePlayer}
+                onController={onController}
+              />
+            </div>
+            {activePull ? (
+              <OverlayLabel>
+                <Dot tone={activePull.kill ? "success" : "neutral"} />
+                <span className="text-soft-foreground">{pullSummary(activePull)}</span>
+              </OverlayLabel>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border bg-card px-4 py-2 font-mono text-xs tabular-nums">
+            <span className="text-[13px]">
+              {formatClock(playhead)}
+              <span className="text-muted-foreground"> / {formatClock(source.duration)}</span>
+            </span>
+            {activePull ? (
+              <span className="text-muted-foreground">
+                pull <span className="text-foreground">#{activePull.pullNumber}</span>
+                {pullStart != null && playhead >= pullStart ? (
+                  <>
+                    {" "}
+                    · <span className="text-foreground">
+                      {formatClock(playhead - pullStart)}
+                    </span>{" "}
+                    in
+                  </>
+                ) : null}
+              </span>
+            ) : null}
+            <label className="inline-flex items-center gap-2 text-muted-foreground">
+              Offset
+              <Input
+                aria-label="Offset in seconds"
+                type="number"
+                step="1"
+                value={offsetText}
+                onChange={(event) => setOffsetText(event.target.value)}
+                className="h-6 w-20 px-2 text-right font-mono text-xs"
+              />
+            </label>
+            <span className="flex-1" />
+            <span className="inline-flex items-center gap-3.5 font-sans text-muted-foreground">
+              <span>
+                <Kbd>j</Kbd> prev
+              </span>
+              <span>
+                <Kbd>k</Kbd> next
+              </span>
+              <span>
+                <Kbd>d</Kbd> next death
+              </span>
+            </span>
+          </div>
+        </div>
+        <aside className="my-3 mr-3 flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-card">
+          <div className="flex h-9 shrink-0 items-center justify-between border-b pr-3 pl-4 text-xs text-muted-foreground">
+            <span>Pulls</span>
+            <span className="font-mono">{data.pulls.length} total</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <PullList
@@ -167,24 +271,16 @@ export function RaidPage({
             />
           </div>
         </aside>
-        <div className="relative min-w-0 flex-1 bg-black">
-          <div className="absolute inset-0">
-            <RaidPlayer
-              videoId={source.id}
-              duration={source.duration}
-              fake={fakePlayer}
-              onController={onController}
-            />
-          </div>
-        </div>
       </div>
       <Timeline
-        mode={timelineMode}
-        onMode={setTimelineMode}
         source={source}
         pulls={data.pulls}
         activeId={search.pull ?? null}
-        player={player}
+        playhead={playhead}
+        players={data.players}
+        encounterPhases={data.encounterPhases}
+        lanes={data.lanes}
+        onSeek={seek}
         onSelect={selectPull}
       />
     </div>

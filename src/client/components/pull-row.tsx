@@ -26,7 +26,7 @@ function PullRow({
   /** Boss HP left when the pull ended, 0 to 100. */
   hp: number;
   duration: string;
-  /** Start time on the recording. Full variant only. */
+  /** Start time on the recording. */
   start?: string;
   selected?: boolean;
   variant?: "full" | "compact";
@@ -61,8 +61,13 @@ function PullRow({
             <span className="w-11 text-right font-mono text-xs text-muted-foreground tabular-nums">
               {duration}
             </span>
-            {!compact && start && (
-              <span className="w-16 text-right font-mono text-xs text-muted-foreground tabular-nums">
+            {start && (
+              <span
+                className={cn(
+                  "text-right font-mono text-xs text-muted-foreground tabular-nums",
+                  compact ? "w-12" : "w-16",
+                )}
+              >
                 {start}
               </span>
             )}
