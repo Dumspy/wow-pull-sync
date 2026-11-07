@@ -55,6 +55,7 @@ const laneMarkVariants = cva("absolute inset-y-1 min-w-0.5 rounded-xs", {
       warning: "bg-warning",
       destructive: "bg-destructive",
       info: "bg-ring",
+      violet: "bg-class-warlock",
     },
   },
   defaultVariants: { tone: "neutral" },

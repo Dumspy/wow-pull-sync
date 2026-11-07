@@ -25,7 +25,12 @@ function FilterChip({
       )}
       {...props}
     >
-      <span className={cn("size-2 rounded-xs", swatchClassName)} />
+      <span
+        className={cn(
+          "size-2 rounded-xs border border-transparent",
+          on ? swatchClassName : "border-current bg-transparent",
+        )}
+      />
       {label}
     </button>
   );

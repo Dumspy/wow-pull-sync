@@ -281,7 +281,6 @@ export function RaidPage({
         encounterPhases={data.encounterPhases}
         lanes={data.lanes}
         onSeek={seek}
-        onSelect={selectPull}
       />
     </div>
   );
