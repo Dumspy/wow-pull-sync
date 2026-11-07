@@ -9,18 +9,11 @@ import { scrubSentryBreadcrumb, sentryBeforeSend } from "./sentry-scrub";
 export function workerSentryOptions(env: Env): CloudflareOptions {
   const dsn = readDsn(env);
   const release = currentSentryRelease();
-  const environment = currentSentryEnvironment();
-
-  // TEMPORARY: SDK debug output lands in Workers Logs on preview. Remove once events arrive.
-  const debug = environment === "preview";
-
-  if (debug) console.log(`sentry dsn present: ${dsn !== ""}`);
 
   const options: CloudflareOptions = {
     dsn,
     enabled: dsn !== "",
-    environment,
-    debug,
+    environment: currentSentryEnvironment(),
     cacheClient: false,
     dataCollection: sentryDataCollection(),
     beforeSend: sentryBeforeSend,
