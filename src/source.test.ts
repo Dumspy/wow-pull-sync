@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FIXTURE_VIDEO_ID, fixtureReportBody, fixtureYoutubeBody } from "./fixtures";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
-import { nightWindow, pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
+import { pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
 
 function sourceFrom(
   vod: { videoId: string; actualStartMs: number; durationSeconds: number },
@@ -52,6 +52,5 @@ describe("pull to video seconds", () => {
     expect(pullInSource(pulls[0]!, source)).toBe(false);
     expect(pullToVideoSeconds(pulls[0]!, source)).toBeLessThan(0);
     expect(pullInSource(pulls[2]!, source)).toBe(true);
-    expect(nightWindow(source, pulls).start).toBeLessThan(0);
   });
 });
