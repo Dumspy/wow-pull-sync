@@ -2,7 +2,7 @@ import type { Breadcrumb, CloudflareOptions } from "@sentry/cloudflare";
 import { z } from "zod";
 
 import type { Env } from "./api";
-import { currentSentryEnvironment, currentSentryRelease, sentryDebugEnabled } from "./sentry-build";
+import { currentSentryEnvironment, currentSentryRelease } from "./sentry-build";
 import { sentryDataCollection } from "./sentry-options";
 import { scrubSentryBreadcrumb, sentryBeforeSend } from "./sentry-scrub";
 
@@ -12,13 +12,15 @@ export function workerSentryOptions(env: Env): CloudflareOptions {
   const environment = currentSentryEnvironment();
 
   // TEMPORARY: SDK debug output lands in Workers Logs on preview. Remove once events arrive.
-  if (sentryDebugEnabled(environment)) console.log(`sentry dsn present: ${dsn !== ""}`);
+  const debug = environment === "preview";
+
+  if (debug) console.log(`sentry dsn present: ${dsn !== ""}`);
 
   const options: CloudflareOptions = {
     dsn,
     enabled: dsn !== "",
     environment,
-    debug: sentryDebugEnabled(environment),
+    debug,
     cacheClient: false,
     dataCollection: sentryDataCollection(),
     beforeSend: sentryBeforeSend,
