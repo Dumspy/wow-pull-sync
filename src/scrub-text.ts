@@ -3,6 +3,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 /** Query params replaced whole. `vods` is the raid's VOD list as encoded JSON; `video` is the Twitch player's id. */
 const NAMED_PARAMS: ReadonlyArray<readonly [string, string]> = [
   ["vod", ":video"],
+  ["user_id", ":user"],
   ["vods", ":vods"],
   ["video", ":video"],
   ["pull", ":pull"],

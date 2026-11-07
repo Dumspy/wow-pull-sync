@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { FIXTURE_VIDEO_ID, fixtureReportBody, fixtureYoutubeBody } from "./fixtures";
+import { formatClock } from "./client/format";
+
+import {
+  FIXTURE_TWITCH_VIDEO_ID,
+  FIXTURE_VIDEO_ID,
+  fixtureReportBody,
+  fixtureTwitchVideoBody,
+  fixtureYoutubeBody,
+} from "./fixtures";
 import { matchPullToVod } from "./match";
-import { readReport, readYoutubeVideo } from "./parse-api";
+import { readReport, readTwitchVideo, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "./source";
 
@@ -63,5 +71,14 @@ describe("pull to video seconds", () => {
     expect(pullInSource(pulls[0]!, source)).toBe(false);
     expect(pullToVideoSeconds(pulls[0]!, source)).toBeLessThan(0);
     expect(pullInSource(pulls[2]!, source)).toBe(true);
+  });
+
+  it("places the same pulls on the Twitch VOD of the night, about 21 minutes earlier", () => {
+    const twitch = readTwitchVideo(fixtureTwitchVideoBody(FIXTURE_TWITCH_VIDEO_ID));
+    const source: VideoSource = { ...sourceFrom(twitch, 0), kind: "twitch" };
+    const pulls = buildPulls(report);
+
+    expect(formatClock(pullToVideoSeconds(pulls[0]!, source))).toBe("2:57");
+    expect(pulls.every((pull) => pullInSource(pull, source))).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { parseIso8601Duration } from "./duration";
+import { parseIso8601Duration, parseTwitchDuration } from "./duration";
 import { HttpError } from "./http-error";
 import { jsonBody, type Json } from "./json";
 
@@ -130,6 +130,24 @@ const youtubeResponseSchema = z.object({
   ),
 });
 
+const twitchVideosSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.string(),
+      stream_id: z.string().nullish().catch(null),
+      user_id: z.string(),
+      title: z.string().catch("Twitch VOD"),
+      created_at: z.string(),
+      duration: z.string(),
+      type: z.string(),
+    }),
+  ),
+});
+
+const twitchStreamsSchema = z.object({
+  data: z.array(z.object({ id: z.string() }).catch({ id: "" })).catch([]),
+});
+
 /** One entry of an events response. Deaths carry the killer; casts carry only the ability. A cast has a `begincast` and a `cast` entry. */
 const eventSchema = z.object({
   timestamp: z.number(),
@@ -249,4 +267,58 @@ export function readYoutubeVideo(body: Json): VodSummary {
     actualStartMs,
     durationSeconds: duration,
   };
+}
+
+export interface TwitchVideo extends VodSummary {
+  /** The channel, for checking whether the stream is still live. */
+  userId: string;
+  /** The broadcast this archive came from. */
+  streamId: string;
+}
+
+/**
+ * A past broadcast from `GET /helix/videos`. `created_at` is second 0: Helix has no broadcast
+ * start for past streams, and on the fixture night it lands within a few seconds of it.
+ */
+export function readTwitchVideo(body: Json): TwitchVideo {
+  const parsed = twitchVideosSchema.safeParse(body);
+
+  if (!parsed.success) {
+    throw new HttpError(502, "Twitch returned an unexpected response.");
+  }
+
+  const video = parsed.data.data[0];
+
+  if (!video) throw new HttpError(404, VOD_ERRORS["not-found"], "not-found");
+
+  // Highlights and uploads are cut or uploaded later, so `created_at` is not the stream start.
+  if (video.type !== "archive" || !video.stream_id) {
+    throw new HttpError(400, VOD_ERRORS["not-stream"], "not-stream");
+  }
+
+  const duration = parseTwitchDuration(video.duration);
+
+  if (duration == null) throw new HttpError(502, "Twitch did not return a video length.");
+
+  const startedAtMs = Date.parse(video.created_at);
+
+  if (!Number.isFinite(startedAtMs)) {
+    throw new HttpError(502, "Twitch returned an unexpected start time.");
+  }
+
+  return {
+    videoId: video.id,
+    title: video.title,
+    actualStartMs: startedAtMs,
+    durationSeconds: duration,
+    userId: video.user_id,
+    streamId: video.stream_id,
+  };
+}
+
+/** True when the channel's live stream is the broadcast this archive is recording. */
+export function isStreamLive(body: Json, streamId: string): boolean {
+  const parsed = twitchStreamsSchema.safeParse(body);
+
+  return parsed.success && parsed.data.data.some((stream) => stream.id === streamId);
 }

@@ -1,10 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import wranglerConfig from "../wrangler.jsonc?raw";
 
 import { api } from "./api";
 import { reportResponseSchema, vodResponseSchema } from "./contract";
+import { FIXTURE_TWITCH_VIDEO_ID, fixtureTwitchVideoBody } from "./fixtures";
 import app from "./worker";
+
+function fixtureVod(vodUrl: string) {
+  return api.request(
+    "/vod",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ vodUrl }),
+    },
+    { USE_FIXTURES: "true" },
+  );
+}
 
 function post(path: "/report" | "/vod", body: string) {
   return api.request(path, {
@@ -204,14 +217,64 @@ describe("POST /api/report and /api/vod", () => {
     expect(await upload.json()).toMatchObject({ reason: "not-stream" });
   });
 
-  it("recognises a Twitch link but does not load it yet", async () => {
-    const response = await post(
-      "/vod",
-      JSON.stringify({ vodUrl: "https://www.twitch.tv/videos/2914150345" }),
-    );
+  it("loads a Twitch past broadcast with created_at as second 0", async () => {
+    const response = await fixtureVod("https://www.twitch.tv/videos/2914150345");
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "Twitch VODs are not supported yet." });
+    expect(response.status).toBe(200);
+    expect(vodResponseSchema.parse(await response.json())).toEqual({
+      platform: "twitch",
+      id: "2914150345",
+      title: "Mythic Ulasnek",
+      startedAtMs: Date.parse("2026-10-29T18:59:37Z"),
+      durationSeconds: 2 * 3600 + 20 * 60 + 29,
+    });
+  });
+
+  it("rejects a Twitch highlight and a Twitch video that is gone", async () => {
+    const highlight = await fixtureVod("https://www.twitch.tv/videos/2916739203");
+    const gone = await fixtureVod("https://www.twitch.tv/videos/1");
+
+    expect(highlight.status).toBe(400);
+    expect(await highlight.json()).toMatchObject({ reason: "not-stream" });
+    expect(gone.status).toBe(404);
+    expect(await gone.json()).toMatchObject({ reason: "not-found" });
+  });
+
+  it("rejects a Twitch video whose stream is still live", async () => {
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input);
+
+      if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+        return Response.json({ access_token: "app-token", expires_in: 3600 });
+      }
+
+      if (url.startsWith("https://api.twitch.tv/helix/videos")) {
+        return Response.json(fixtureTwitchVideoBody(FIXTURE_TWITCH_VIDEO_ID));
+      }
+
+      if (url.startsWith("https://api.twitch.tv/helix/streams")) {
+        return Response.json({ data: [{ id: "318999454439" }] });
+      }
+
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    try {
+      const response = await api.request(
+        "/vod",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ vodUrl: "https://www.twitch.tv/videos/2914150345" }),
+        },
+        { TWITCH_CLIENT_ID: "id", TWITCH_CLIENT_SECRET: "secret" },
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ reason: "live" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("asks only for the credentials each endpoint uses", async () => {
@@ -241,5 +304,18 @@ describe("POST /api/report and /api/vod", () => {
     expect(await report.json()).toEqual({ error: "WCL API credentials are not configured." });
     expect(vod.status).toBe(500);
     expect(await vod.json()).toEqual({ error: "YouTube API credentials are not configured." });
+
+    const twitch = await api.request(
+      "/vod",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ vodUrl: "https://www.twitch.tv/videos/2914150345" }),
+      },
+      { YOUTUBE_API_KEY: "key" },
+    );
+
+    expect(twitch.status).toBe(500);
+    expect(await twitch.json()).toEqual({ error: "Twitch API credentials are not configured." });
   });
 });

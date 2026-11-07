@@ -12,7 +12,14 @@ import {
   vodResponseSchema,
 } from "./contract";
 import { HttpError } from "./http-error";
-import { readReport, readYoutubeVideo, VOD_ERRORS } from "./parse-api";
+import {
+  isStreamLive,
+  readReport,
+  readTwitchVideo,
+  readYoutubeVideo,
+  VOD_ERRORS,
+  type VodSummary,
+} from "./parse-api";
 import { buildPulls } from "./pulls";
 import {
   buildEncounterPhases,
@@ -22,6 +29,7 @@ import {
 } from "./report-meta";
 import { loadReportEvents } from "./report-events";
 import { parseReportCode, parseVodLink } from "./urls";
+import { fetchTwitchStreamsBody, fetchTwitchVideoBody } from "./twitch";
 import { fetchReportBody } from "./wcl";
 import { fetchYoutubeBody } from "./youtube";
 
@@ -30,6 +38,8 @@ export interface Env {
   WCL_CLIENT_ID?: string;
   WCL_CLIENT_SECRET?: string;
   YOUTUBE_API_KEY?: string;
+  TWITCH_CLIENT_ID?: string;
+  TWITCH_CLIENT_SECRET?: string;
   USE_FIXTURES?: string;
   SENTRY_DSN?: string;
 }
@@ -61,6 +71,26 @@ function failure(error: HttpError | null, fallback: string) {
   if (error.status === 404) return { body, status: 404 as const };
 
   return { body, status: 502 as const };
+}
+
+/** The past broadcast, rejected while its stream is still running. */
+async function loadTwitchVideo(
+  videoId: string,
+  env: Env,
+  useFixtures: boolean,
+): Promise<VodSummary> {
+  const clientId = env.TWITCH_CLIENT_ID ?? "";
+  const clientSecret = env.TWITCH_CLIENT_SECRET ?? "";
+
+  const video = readTwitchVideo(
+    await fetchTwitchVideoBody(videoId, clientId, clientSecret, useFixtures),
+  );
+
+  const streams = await fetchTwitchStreamsBody(video.userId, clientId, clientSecret, useFixtures);
+
+  if (isStreamLive(streams, video.streamId)) throw new HttpError(400, VOD_ERRORS.live, "live");
+
+  return video;
 }
 
 const reportFailure = "Something went wrong loading that raid.";
@@ -155,26 +185,32 @@ export const api = new Hono<{ Bindings: Env }>()
         return c.json({ error: VOD_ERRORS.unsupported, reason: "unsupported" as const }, 400);
       }
 
-      if (link.platform === "twitch") {
-        return c.json({ error: "Twitch VODs are not supported yet." }, 400);
-      }
-
-      const videoId = link.id;
-
       const useFixtures = c.env.USE_FIXTURES === "true";
 
-      if (!useFixtures && !c.env.YOUTUBE_API_KEY) {
+      if (link.platform === "twitch") {
+        if (!useFixtures && (!c.env.TWITCH_CLIENT_ID || !c.env.TWITCH_CLIENT_SECRET)) {
+          return c.json({ error: "Twitch API credentials are not configured." }, 500);
+        }
+      } else if (!useFixtures && !c.env.YOUTUBE_API_KEY) {
         return c.json({ error: "YouTube API credentials are not configured." }, 500);
       }
 
       try {
-        const vod = readYoutubeVideo(
-          await fetchYoutubeBody(videoId, request.vodUrl, c.env.YOUTUBE_API_KEY ?? "", useFixtures),
-        );
+        const vod =
+          link.platform === "twitch"
+            ? await loadTwitchVideo(link.id, c.env, useFixtures)
+            : readYoutubeVideo(
+                await fetchYoutubeBody(
+                  link.id,
+                  request.vodUrl,
+                  c.env.YOUTUBE_API_KEY ?? "",
+                  useFixtures,
+                ),
+              );
 
         const response = vodResponseSchema.parse({
-          platform: "youtube",
-          id: vod.videoId || videoId,
+          platform: link.platform,
+          id: vod.videoId || link.id,
           title: vod.title,
           startedAtMs: vod.actualStartMs,
           durationSeconds: vod.durationSeconds,

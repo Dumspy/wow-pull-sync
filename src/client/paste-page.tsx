@@ -51,13 +51,7 @@ export function PastePage() {
     const vod = parseVodLink(vodUrl);
 
     if (!vod) {
-      setError("That doesn't look like a YouTube URL.");
-
-      return;
-    }
-
-    if (vod.platform === "twitch") {
-      setError("Twitch VODs are not supported yet.");
+      setError("That doesn't look like a YouTube or Twitch video link.");
 
       return;
     }
@@ -83,7 +77,7 @@ export function PastePage() {
         <div className="flex w-full max-w-md flex-col gap-5">
           <PageHeader
             title="Sync a raid night"
-            subtitle="Paste a Warcraft Logs report and the YouTube VOD from that night."
+            subtitle="Paste a Warcraft Logs report and the YouTube or Twitch VOD from that night."
           />
           <Card variant="panel">
             <CardContent>
@@ -102,7 +96,7 @@ export function PastePage() {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="vod-url">YouTube VOD</Label>
+                  <Label htmlFor="vod-url">YouTube or Twitch VOD</Label>
                   <Input
                     id="vod-url"
                     name="vodUrl"

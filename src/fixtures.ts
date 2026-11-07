@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import wclReport from "../fixtures/wcl-TPYJD2c4VkLZfBp9.json";
+import twitchHighlight from "../fixtures/twitch-2916739203.json";
+import twitchArchive from "../fixtures/twitch-2914150345.json";
 import wclEvents from "../fixtures/wcl-TPYJD2c4VkLZfBp9-events.json";
 import youtubeLive from "../fixtures/yt-BLJBhzLNt8w.json";
 import youtubeLateStart from "../fixtures/yt-BLJBhzLNt8w-late-start.json";
@@ -11,6 +13,10 @@ import { jsonBody, type Json } from "./json";
 export const FIXTURE_REPORT_CODE = "TPYJD2c4VkLZfBp9";
 export const FIXTURE_VIDEO_ID = "BLJBhzLNt8w";
 export const FIXTURE_NON_LIVE_VIDEO_ID = "dQw4w9WgXcQ";
+
+/** Recorded Helix responses: litsyyyy's past broadcast of the same night, and a highlight. */
+export const FIXTURE_TWITCH_VIDEO_ID = "2914150345";
+export const FIXTURE_TWITCH_HIGHLIGHT_ID = "2916739203";
 
 /**
  * Dev-only. Append `?fixture=outside` to the VOD URL to serve a copy of the
@@ -65,6 +71,20 @@ export function fixtureYoutubeBody(videoId: string, vodUrl?: string): Json {
   if (item) item.id = videoId;
 
   return parsed.success ? jsonBody.parse(parsed.data) : body;
+}
+
+/** Any other Twitch id is missing, the way Helix reports an expired or deleted video. */
+export function fixtureTwitchVideoBody(videoId: string): Json {
+  if (videoId === FIXTURE_TWITCH_VIDEO_ID) return recordedJson(twitchArchive);
+
+  if (videoId === FIXTURE_TWITCH_HIGHLIGHT_ID) return recordedJson(twitchHighlight);
+
+  return { data: [], pagination: {} };
+}
+
+/** Fixture channels are never live. */
+export function fixtureTwitchStreamsBody(): Json {
+  return { data: [], pagination: {} };
 }
 
 function recordedJson<T>(document: T): Json {
