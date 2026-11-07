@@ -68,7 +68,12 @@ export type Death = z.output<typeof deathSchema>;
 export const castSchema = z.object({ atMs: z.number(), spellId: z.number() });
 
 /** A spell that shows up in the report's enemy casts. */
-export const abilitySchema = z.object({ id: z.number(), name: z.string() });
+export const abilitySchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  /** Icon file name as Warcraft Logs gives it, e.g. `spell_shadow_shadowbolt.jpg`. */
+  icon: z.string().nullable(),
+});
 
 export type Ability = z.output<typeof abilitySchema>;
 

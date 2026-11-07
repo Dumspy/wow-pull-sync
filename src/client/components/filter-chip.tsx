@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -8,9 +8,12 @@ function FilterChip({
   label,
   swatchClassName,
   on = false,
+  icon,
   ...props
 }: Omit<ComponentProps<"button">, "children"> & {
   label: string;
+  /** Shown instead of the colour swatch. */
+  icon?: ReactNode;
   swatchClassName: string;
   on?: boolean;
 }) {
@@ -25,12 +28,14 @@ function FilterChip({
       )}
       {...props}
     >
-      <span
-        className={cn(
-          "size-2 rounded-xs border border-transparent",
-          on ? swatchClassName : "border-current bg-transparent",
-        )}
-      />
+      {icon ?? (
+        <span
+          className={cn(
+            "size-2 rounded-xs border border-transparent",
+            on ? swatchClassName : "border-current bg-transparent",
+          )}
+        />
+      )}
       {label}
     </button>
   );

@@ -29,7 +29,7 @@ const REPORT_QUERY = `
         phases { encounterID phases { id name isIntermission } }
         masterData {
           actors(type: "Player") { id name subType server icon }
-          abilities { gameID name }
+          abilities { gameID name icon }
         }
         fights {
           id

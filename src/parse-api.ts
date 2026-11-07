@@ -69,7 +69,13 @@ const reportSchema = z.object({
     .object({
       actors: z.array(actorSchema).nullish().catch(null),
       abilities: z
-        .array(z.object({ gameID: z.number(), name: z.string() }))
+        .array(
+          z.object({
+            gameID: z.number(),
+            name: z.string(),
+            icon: z.string().nullish().catch(null),
+          }),
+        )
         .nullish()
         .catch(null),
     })

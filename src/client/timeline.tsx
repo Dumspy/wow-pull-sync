@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
 import type { Ability, EncounterPhases, Player, Pull } from "../types";
+import { SpellIcon } from "./components/spell-icon";
 import { FilterChip } from "./components/filter-chip";
 import { Lane, LaneMark, LaneSegment, Playhead, TimeAxis } from "./components/lane";
 import { Input } from "./components/ui/input";
@@ -272,6 +273,7 @@ function PullLanes({
           <FilterChip
             key={id}
             label={catalog.find((spell) => spell.id === id)?.name ?? String(id)}
+            icon={<SpellIcon icon={catalog.find((spell) => spell.id === id)?.icon ?? null} />}
             swatchClassName={LANE_TONES[index % LANE_TONES.length].swatch}
             on
             onClick={() => toggle(id)}
@@ -350,11 +352,22 @@ function PullLanes({
         <Playhead at={playheadAt} />
       </Lane>
       {shown.map((id, index) => {
-        const name = catalog.find((spell) => spell.id === id)?.name ?? String(id);
+        const spell = catalog.find((item) => item.id === id);
+        const name = spell?.name ?? String(id);
         const tone = LANE_TONES[index % LANE_TONES.length].tone;
 
         return (
-          <Lane key={id} label={name} className="cursor-pointer" onClick={seekFromClick}>
+          <Lane
+            key={id}
+            label={
+              <span className="flex items-center gap-1.5" title={name}>
+                <SpellIcon icon={spell?.icon ?? null} />
+                <span className="truncate">{name}</span>
+              </span>
+            }
+            className="cursor-pointer"
+            onClick={seekFromClick}
+          >
             {pull.casts
               .filter((cast) => cast.spellId === id)
               .map((cast) => (
@@ -378,25 +391,20 @@ function PullLanes({
 interface CatalogSpell {
   id: number;
   name: string;
-  /** Casts across the encounter's pulls. */
-  count: number;
+  icon: string | null;
 }
 
-/** Every enemy spell cast in the given pulls, most-cast first. */
+/** Every enemy spell cast in the given pulls, by name. */
 function spellCatalog(pulls: Pull[], abilities: Ability[]): CatalogSpell[] {
-  const counts = new Map<number, number>();
+  const ids = new Set(pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)));
 
-  for (const pull of pulls) {
-    for (const cast of pull.casts) counts.set(cast.spellId, (counts.get(cast.spellId) ?? 0) + 1);
-  }
+  return [...ids]
+    .map((id) => {
+      const ability = abilities.find((item) => item.id === id);
 
-  return [...counts.entries()]
-    .map(([id, count]) => ({
-      id,
-      count,
-      name: abilities.find((ability) => ability.id === id)?.name ?? `Spell ${id}`,
-    }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+      return { id, name: ability?.name ?? `Spell ${id}`, icon: ability?.icon ?? null };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 }
 
 function SpellPicker({
@@ -442,8 +450,8 @@ function SpellPicker({
               onClick={() => onToggle(spell.id)}
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent aria-pressed:bg-accent"
             >
+              <SpellIcon icon={spell.icon} />
               <span className="min-w-0 flex-1 truncate">{spell.name}</span>
-              <span className="font-mono text-muted-foreground tabular-nums">{spell.count}</span>
             </button>
           ))}
         </div>

@@ -33,13 +33,17 @@ export function buildEncounterPhases(report: ReportSummary): EncounterPhases[] {
   return result;
 }
 
-/** Names for the spells in `spellIds`, from the report's ability list. Unnamed ones keep the id. */
+/** Names and icons for the spells in `spellIds`. Unnamed ones keep the id and have no icon. */
 export function buildAbilities(report: ReportSummary, spellIds: Iterable<number>): Ability[] {
-  const names = new Map(
-    (report.masterData?.abilities ?? []).map((ability) => [ability.gameID, ability.name]),
+  const known = new Map(
+    (report.masterData?.abilities ?? []).map((ability) => [ability.gameID, ability]),
   );
 
   return [...new Set(spellIds)]
     .sort((a, b) => a - b)
-    .map((id) => ({ id, name: names.get(id) ?? `Spell ${id}` }));
+    .map((id) => ({
+      id,
+      name: known.get(id)?.name ?? `Spell ${id}`,
+      icon: known.get(id)?.icon ?? null,
+    }));
 }
