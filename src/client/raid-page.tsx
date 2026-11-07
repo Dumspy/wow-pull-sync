@@ -32,7 +32,10 @@ export function RaidPage({
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
-  const [offsetText, setOffsetText] = useState(search.offset != null ? String(search.offset) : initialOffsetText);
+  const [offsetText, setOffsetText] = useState(
+    search.offset != null ? String(search.offset) : initialOffsetText,
+  );
+
   const [player, setPlayer] = useState<PlayerController | null>(null);
   const fakePlayer = devFakePlayer();
   const offsetSeconds = offsetNumber(offsetText);
