@@ -39,3 +39,50 @@ export function groupSummary(pulls: readonly Pull[]): string {
 
   return `${base} · ${best}%`;
 }
+
+export interface BossSummary {
+  encounterId: number;
+  name: string;
+  pulls: Pull[];
+  kills: number;
+  wipes: number;
+  /** Total pull time in milliseconds. */
+  timeMs: number;
+  /** Lowest boss HP left on a wipe, 0 to 100. Null when there is no wipe. */
+  bestWipeHp: number | null;
+}
+
+/** Every boss pulled in the report, in the order each was first pulled, with all its pulls. */
+export function summarizeBosses(pulls: readonly Pull[]): BossSummary[] {
+  const byEncounter = new Map<number, Pull[]>();
+
+  for (const pull of pulls) {
+    byEncounter.set(pull.encounterId, [...(byEncounter.get(pull.encounterId) ?? []), pull]);
+  }
+
+  return [...byEncounter.entries()].map(([encounterId, group]) => {
+    const kills = group.filter((pull) => pull.kill).length;
+    const wipes = group.filter((pull) => !pull.kill).map(hpLeft);
+
+    return {
+      encounterId,
+      name: group[0]?.bossName ?? "Unknown",
+      pulls: group,
+      kills,
+      wipes: wipes.length,
+      timeMs: group.reduce((sum, pull) => sum + pull.durationMs, 0),
+      bestWipeHp: wipes.length > 0 ? Math.min(...wipes) : null,
+    };
+  });
+}
+
+/** "3h 12m", "45m", or "50s" for short totals. */
+export function formatSpan(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+  if (minutes > 0) return `${minutes}m`;
+
+  return `${Math.round(ms / 1000)}s`;
+}

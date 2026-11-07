@@ -27,7 +27,10 @@ const REPORT_QUERY = `
         guild { id name server { name region { slug } } }
         owner { name }
         phases { encounterID phases { id name isIntermission } }
-        masterData { actors(type: "Player") { id name subType server icon } }
+        masterData {
+          actors(type: "Player") { id name subType server icon }
+          abilities { gameID name icon }
+        }
         fights {
           id
           name

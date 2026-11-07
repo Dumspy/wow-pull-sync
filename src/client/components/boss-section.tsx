@@ -8,12 +8,15 @@ function BossSection({
   name,
   stats,
   action,
+  bodyClassName,
   children,
   ...props
 }: Omit<ComponentProps<"section">, "title"> & {
   name: ReactNode;
   stats?: ReactNode;
   action?: ReactNode;
+  /** Classes for the rows area. It scrolls past a fixed height unless this overrides it. */
+  bodyClassName?: string;
 }) {
   return (
     <section
@@ -27,7 +30,7 @@ function BossSection({
         <span className="flex-1" />
         {action}
       </div>
-      <div className="max-h-66 overflow-y-auto">{children}</div>
+      <div className={cn("max-h-66 overflow-y-auto", bodyClassName)}>{children}</div>
     </section>
   );
 }

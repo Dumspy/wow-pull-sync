@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { pullSyncResponseSchema } from "./contract";
 import { fixtureReportBody, fixtureYoutubeBody, FIXTURE_VIDEO_ID } from "./fixtures";
-import { LANES } from "./lanes";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
 import { buildEncounterPhases, buildPlayers } from "./report-meta";
@@ -14,7 +13,7 @@ const CODE = "TPYJD2c4VkLZfBp9";
 describe("recorded events", async () => {
   const report = readReport(fixtureReportBody(CODE));
   const vod = readYoutubeVideo(fixtureYoutubeBody(FIXTURE_VIDEO_ID));
-  const { events, lanes } = await loadReportEvents(CODE, "", "", true, report);
+  const events = await loadReportEvents(CODE, "", "", true, report);
   const pulls = buildPulls(report, vod, 0, events);
   const pull = (fightId: number) => pulls.find((item) => item.fightId === fightId);
 
@@ -49,21 +48,18 @@ describe("recorded events", async () => {
     expect(pull(3)?.lastPhase).toBe(2);
   });
 
-  it("gives each Ula'tek pull its lane events, and none to other bosses", () => {
-    const first = pull(2)?.lanes.find((lane) => lane.laneId === "ulatek-mothers-wrath");
+  it("gives each pull its enemy casts, once per cast, in order", () => {
+    const casts = pull(2)?.casts ?? [];
 
-    expect(first?.events).toEqual([
-      { atMs: 21910, spellId: 1298367 },
-      { atMs: 26921, spellId: 1298367 },
-    ]);
-
-    const other = pulls.find((item) => item.encounterId !== 3492);
-
-    expect(other?.lanes).toEqual([]);
-  });
-
-  it("reports only the lanes whose encounter is in the report", () => {
-    expect(lanes.map((lane) => lane.id)).toEqual(LANES.map((lane) => lane.id));
+    expect(casts.length).toBeGreaterThan(0);
+    expect(casts.every((cast) => cast.spellId > 0)).toBe(true);
+    expect(casts.map((cast) => cast.atMs)).toEqual(
+      casts
+        .map((cast) => cast.atMs)
+        .slice()
+        .sort((a, b) => a - b),
+    );
+    expect(pull(2)?.casts.filter((cast) => cast.spellId === 1298367)).toHaveLength(1);
   });
 
   it("maps the roster to classes and specs, and names the phases", () => {
@@ -86,7 +82,7 @@ describe("recorded events", async () => {
 });
 
 describe("POST /api/pulls with fixtures", () => {
-  it("returns the report details, roster, deaths and lanes the design needs", async () => {
+  it("returns the report details, roster, deaths and abilities the design needs", async () => {
     const response = await app.request(
       "http://localhost/api/pulls",
       {
@@ -112,7 +108,7 @@ describe("POST /api/pulls with fixtures", () => {
     expect(body.guild?.region).toBe("EU");
     expect(body.owner).toBe("Dispy");
     expect(body.players).toHaveLength(22);
-    expect(body.lanes).toHaveLength(LANES.length);
+    expect(body.abilities.map((ability) => ability.id)).toContain(1298367);
     expect(body.pulls).toHaveLength(22);
     expect(body.pulls.some((pull) => pull.deaths.length > 0)).toBe(true);
   });
@@ -167,12 +163,8 @@ async function expectEmptyEvents(failure: EventsFailure) {
   expect(body.pulls).toHaveLength(22);
   expect(body.guild?.name).toBe("Average Pillagers");
   expect(body.pulls.every((pull) => pull.deaths.length === 0)).toBe(true);
-  expect(body.pulls.every((pull) => pull.lanes.every((lane) => lane.events.length === 0))).toBe(
-    true,
-  );
+  expect(body.pulls.every((pull) => pull.casts.length === 0)).toBe(true);
   expect(warnings).toEqual([
-    `Warcraft Logs events request failed: ${failure}`,
-    `Warcraft Logs events request failed: ${failure}`,
     `Warcraft Logs events request failed: ${failure}`,
     `Warcraft Logs events request failed: ${failure}`,
   ]);

@@ -3,7 +3,12 @@ import type { PostHogConfig } from "posthog-js/dist/module.slim.no-external";
 import { scrubAnalyticsCapture } from "./analytics-scrub";
 
 /** Named product events. `$pageview` is sent from router navigation, not via `track`. */
-export type AnalyticsEvent = "raid loaded" | "pull clicked" | "VOD played";
+export type AnalyticsEvent =
+  | "raid loaded"
+  | "pull clicked"
+  | "VOD played"
+  | "overview opened"
+  | "boss progress opened";
 
 export interface RaidLoadedProperties {
   pull_count: number;
@@ -14,11 +19,15 @@ export interface PullClickedProperties {
   kill: boolean;
 }
 
+export interface BossProgressOpenedProperties {
+  encounter_id: number;
+}
+
 type Client = { capture: PostHogCapture };
 
 type PostHogCapture = (
   event: string,
-  properties?: RaidLoadedProperties | PullClickedProperties,
+  properties?: RaidLoadedProperties | PullClickedProperties | BossProgressOpenedProperties,
 ) => void;
 
 /** A previous location is present once the router has resolved at least one navigation. */
@@ -119,9 +128,14 @@ export function initAnalytics(): void {
 export function track(event: "raid loaded", properties: RaidLoadedProperties): void;
 export function track(event: "pull clicked", properties: PullClickedProperties): void;
 export function track(event: "VOD played"): void;
+export function track(event: "overview opened"): void;
+export function track(
+  event: "boss progress opened",
+  properties: BossProgressOpenedProperties,
+): void;
 export function track(
   event: AnalyticsEvent,
-  properties?: RaidLoadedProperties | PullClickedProperties,
+  properties?: RaidLoadedProperties | PullClickedProperties | BossProgressOpenedProperties,
 ): void {
   enqueue(() => {
     client?.capture(event, properties);

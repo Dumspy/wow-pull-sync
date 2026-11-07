@@ -1,6 +1,10 @@
 # Phase 1: Review UI
 
-**Status:** Planned
+**Status:** Done
+
+**What shipped:** the restyled review page, boss-grouped pull list, pull timeline with boss HP, phases and a deaths lane, and an "Add events" picker that lists every spell the boss and its adds cast (with icons, same-named spells merged, a small default hide list) and shows the chosen ones as lanes. Picks live in the URL, so they are shareable. Clicking a death or event seeks to it. The offset is kept in the URL. The raid overview (`/raid/<report>/overview`) and boss progress (`/raid/<report>/boss/<encounter>`) pages are in, and the `overview opened` and `boss progress opened` analytics events.
+
+**Left for later:** the picker only covers enemy casts. Player cooldowns, buffs and debuffs, interrupts and dispels are not offered yet. Real WCL data (spell names and icons) has only been checked against recorded fixtures so far.
 
 ## Goal
 
@@ -48,11 +52,11 @@ Turn the current rough review page into the real review experience from the desi
 ## Data and dependencies
 
 - WCL v2 GraphQL API for fights, boss HP, deaths, phases and events.
-- Which events go into lanes beyond boss HP, deaths and phases: to confirm with engineering, based on what the API gives us cheaply.
+- Lanes are enemy casts picked by the user. Which other event types to offer, and how to load them cheaply (player casts are far more numerous): to confirm with engineering.
 - How API responses are cached (KV or Cache API): to confirm with engineering.
 
 ## Open questions
 
-- Which event lanes matter most to a raid leader beyond HP, deaths and phases (for example big cooldowns, interrupts, boss casts)?
+- Which event sources should the picker add next: player cooldowns, buffs and debuffs, interrupts, dispels? (Boss and add casts are covered.)
 - Does the WCL API give phase information for every boss, or will some bosses lack phases?
 - Which new analytics events should this phase add?

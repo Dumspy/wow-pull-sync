@@ -28,13 +28,15 @@ export function fixtureReportBody(code: string): Json {
 }
 
 /**
- * Recorded events for the fixture report: `deaths`, and one array per lane id. Anything
- * else is empty.
+ * Recorded events for the fixture report: `deaths`, and `casts` (the three Ula'tek
+ * spells that were recorded). Anything else is empty.
  */
 export function fixtureEventsBody(code: string, key: string): Json {
   if (code !== FIXTURE_REPORT_CODE) return [];
 
   if (key === "deaths") return recordedJson(wclEvents.deaths);
+
+  if (key === "casts") return recordedJson(wclEvents.lanes.flatMap((entry) => entry.events));
 
   const lane = wclEvents.lanes.find((entry) => entry.id === key);
 

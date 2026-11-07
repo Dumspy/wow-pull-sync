@@ -8,7 +8,12 @@ import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
-import { buildEncounterPhases, buildPlayers } from "./report-meta";
+import {
+  buildEncounterPhases,
+  buildAbilities,
+  buildPlayers,
+  withoutHiddenSpells,
+} from "./report-meta";
 import { loadReportEvents } from "./report-events";
 import { parseReportCode, parseVideoId } from "./urls";
 import { fetchReportBody } from "./wcl";
@@ -78,13 +83,12 @@ export const api = new Hono<{ Bindings: Env }>().post(
         ),
       ]);
 
-      const { events, lanes } = await loadReportEvents(
-        code,
-        clientId,
-        clientSecret,
-        useFixtures,
-        report,
-      );
+      const events = await loadReportEvents(code, clientId, clientSecret, useFixtures, report);
+
+      const pulls = buildPulls(report, vod, request.offsetSeconds, {
+        ...events,
+        casts: withoutHiddenSpells(report, events.casts),
+      });
 
       const response = pullSyncResponseSchema.parse({
         videoId: vod.videoId || videoId,
@@ -105,8 +109,11 @@ export const api = new Hono<{ Bindings: Env }>().post(
         owner: report.owner?.name ?? null,
         players: buildPlayers(report),
         encounterPhases: buildEncounterPhases(report),
-        lanes,
-        pulls: buildPulls(report, vod, request.offsetSeconds, events),
+        abilities: buildAbilities(
+          report,
+          pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)),
+        ),
+        pulls,
       });
 
       return c.json(response, 200);

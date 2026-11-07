@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
@@ -14,7 +15,7 @@ import { formatClock, formatPercent } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { PullList } from "./pull-list";
-import { searchForPull, type RaidSearch } from "./raid-search";
+import { searchForPull, searchWithOffset, searchWithSpells, type RaidSearch } from "./raid-search";
 import { Timeline, usePlayhead } from "./timeline";
 
 export function RaidPage({
@@ -32,7 +33,10 @@ export function RaidPage({
   onReplaceSearch: (search: RaidSearch) => void;
   onAnotherRaid: (offsetText: string) => void;
 }) {
-  const [offsetText, setOffsetText] = useState(initialOffsetText);
+  const [offsetText, setOffsetText] = useState(
+    search.offset != null ? String(search.offset) : initialOffsetText,
+  );
+
   const [player, setPlayer] = useState<PlayerController | null>(null);
   const fakePlayer = devFakePlayer();
   const offsetSeconds = offsetNumber(offsetText);
@@ -157,10 +161,10 @@ export function RaidPage({
           </span>
         </div>
         <StatChip tone="success" value={kills}>
-          kill
+          {kills === 1 ? "kill" : "kills"}
         </StatChip>
         <StatChip tone="neutral" value={data.pulls.length - kills}>
-          wipes
+          {data.pulls.length - kills === 1 ? "wipe" : "wipes"}
         </StatChip>
         <span className="flex-1" />
         <div className="flex items-center gap-1">
@@ -183,6 +187,14 @@ export function RaidPage({
             Next
           </Button>
         </div>
+        <Link
+          to="/raid/$reportCode/overview"
+          params={{ reportCode: data.reportCode }}
+          search={{ vod: search.vod, offset: search.offset }}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          Overview
+        </Link>
         <a
           className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
           href={reportHref(data.reportCode, activePull?.fightId ?? null)}
@@ -239,7 +251,10 @@ export function RaidPage({
                 type="number"
                 step="1"
                 value={offsetText}
-                onChange={(event) => setOffsetText(event.target.value)}
+                onChange={(event) => {
+                  setOffsetText(event.target.value);
+                  onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
+                }}
                 className="h-6 w-20 px-2 text-right font-mono text-xs"
               />
             </label>
@@ -279,7 +294,9 @@ export function RaidPage({
         playhead={playhead}
         players={data.players}
         encounterPhases={data.encounterPhases}
-        lanes={data.lanes}
+        abilities={data.abilities}
+        spells={search.spells ?? []}
+        onSpellsChange={(spells) => onReplaceSearch(searchWithSpells(search, spells))}
         onSeek={seek}
       />
     </div>
