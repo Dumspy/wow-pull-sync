@@ -36,12 +36,35 @@ interface YtPlayerOptions {
   };
 }
 
+interface TwitchPlayer {
+  seek(seconds: number): void;
+  play(): void;
+  getCurrentTime(): Json;
+  addEventListener(event: string, listener: () => void): void;
+}
+
+interface TwitchPlayerOptions {
+  video: string;
+  width: string;
+  height: string;
+  /** Hostnames of the page embedding the player. Twitch refuses to play without a match. */
+  parent: string[];
+  autoplay: boolean;
+}
+
 declare global {
   interface Window {
     YT?: {
       Player: new (element: HTMLElement, options: YtPlayerOptions) => YtPlayer;
     };
     onYouTubeIframeAPIReady?: () => void;
+    Twitch?: {
+      Player: {
+        new (element: HTMLElement, options: TwitchPlayerOptions): TwitchPlayer;
+        READY: string;
+        PLAY: string;
+      };
+    };
   }
 }
 
@@ -64,6 +87,27 @@ function loadYoutubeApi(): Promise<void> {
   });
 }
 
+let twitchApi: Promise<void> | null = null;
+
+function loadTwitchApi(): Promise<void> {
+  if (window.Twitch?.Player) return Promise.resolve();
+
+  twitchApi ??= new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://player.twitch.tv/js/embed/v1.js";
+    script.dataset.twitchEmbedApi = "true";
+    script.onload = () => resolve();
+    script.onerror = () => {
+      twitchApi = null;
+      reject(new Error("The Twitch player could not be loaded."));
+    };
+
+    document.body.appendChild(script);
+  });
+
+  return twitchApi;
+}
+
 export function devFakePlayer(): boolean {
   if (!import.meta.env.DEV) return false;
 
@@ -84,11 +128,7 @@ export function RaidPlayer({
   }
 
   if (source.kind === "twitch") {
-    return (
-      <div className="flex h-full w-full items-center justify-center text-sm text-white/70">
-        Twitch playback is not available yet.
-      </div>
-    );
+    return <TwitchVideoPlayer videoId={source.id} onController={onController} />;
   }
 
   return <YoutubePlayer videoId={source.id} onController={onController} />;
@@ -205,6 +245,111 @@ function YoutubePlayer({
       cancelled = true;
       onControllerRef.current(null);
       player?.destroy();
+    };
+  }, [videoId]);
+
+  return <div ref={hostRef} className="h-full w-full [&_iframe]:h-full [&_iframe]:w-full" />;
+}
+
+function TwitchVideoPlayer({
+  videoId,
+  onController,
+}: {
+  videoId: string;
+  onController: (player: PlayerController | null) => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const onControllerRef = useRef(onController);
+  onControllerRef.current = onController;
+
+  useEffect(() => {
+    const host = hostRef.current;
+
+    if (!host) return;
+    let cancelled = false;
+    let player: TwitchPlayer | null = null;
+    let ready = false;
+    let pending: number | null = null;
+    let seekTarget: number | null = null;
+    const listeners = new Set<() => void>();
+
+    const controller: PlayerController = {
+      seekTo(seconds) {
+        seekTarget = seconds;
+
+        if (ready && player) {
+          player.seek(seconds);
+          player.play();
+        } else {
+          pending = seconds;
+        }
+      },
+      getCurrentTime() {
+        if (!ready || !player) return seekTarget ?? pending ?? 0;
+        let reported = 0;
+
+        try {
+          const value = player.getCurrentTime();
+          // SAFETY: Number.isFinite accepts only finite numbers, which are JSON numbers.
+          reported = Number.isFinite(value) ? (value as number) : 0;
+        } catch {
+          reported = 0;
+        }
+
+        // Twitch reports the old time for a moment after a seek, like YouTube.
+        if (seekTarget != null && Math.abs(reported - seekTarget) > 0.75) return seekTarget;
+        seekTarget = null;
+
+        return reported;
+      },
+      onReady(listener) {
+        if (ready) listener();
+        else listeners.add(listener);
+
+        return () => listeners.delete(listener);
+      },
+    };
+
+    onControllerRef.current(controller);
+
+    void loadTwitchApi()
+      .then(() => {
+        const Twitch = window.Twitch;
+
+        if (cancelled || !hostRef.current || !Twitch) return;
+        host.replaceChildren();
+        const mount = document.createElement("div");
+        mount.className = "h-full w-full";
+        host.appendChild(mount);
+        player = new Twitch.Player(mount, {
+          video: videoId,
+          width: "100%",
+          height: "100%",
+          parent: [window.location.hostname],
+          autoplay: false,
+        });
+        player.addEventListener(Twitch.Player.READY, () => {
+          ready = true;
+
+          if (pending != null) {
+            seekTarget = pending;
+            player?.seek(pending);
+            pending = null;
+          }
+
+          listeners.forEach((listener) => listener());
+        });
+        player.addEventListener(Twitch.Player.PLAY, () => track("VOD played"));
+      })
+      .catch(() => {
+        if (!cancelled) host.textContent = "The Twitch player could not be loaded.";
+      });
+
+    return () => {
+      cancelled = true;
+      onControllerRef.current(null);
+      // The embed has no destroy call; removing its iframe stops playback.
+      host.replaceChildren();
     };
   }, [videoId]);
 
