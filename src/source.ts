@@ -37,27 +37,3 @@ export function pullInSource(pull: { startedAt: number }, source: VideoSource): 
     offsetSeconds: source.offset,
   }).inVod;
 }
-
-/** Video seconds covered by the night timeline, including pulls that miss the VOD. */
-export interface NightWindow {
-  start: number;
-  end: number;
-}
-
-/** Night timeline domain: the VOD, widened so pulls that miss it still have a block. */
-export function nightWindow(
-  source: VideoSource,
-  pulls: { startedAt: number; endedAt: number }[],
-): NightWindow {
-  let start = 0;
-  let end = Math.max(source.duration, 0);
-
-  for (const pull of pulls) {
-    start = Math.min(start, pullToVideoSeconds(pull, source));
-    end = Math.max(end, pullEndVideoSeconds(pull, source));
-  }
-
-  if (end <= start) end = start + 1;
-
-  return { start, end };
-}

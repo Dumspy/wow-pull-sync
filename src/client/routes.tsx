@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import type { QueryClient } from "@tanstack/react-query";
 
+import { DesignGallery } from "./design-gallery";
 import { Devtools } from "./devtools";
 import { PastePage } from "./paste-page";
 import { pullsQueryOptions, REQUEST_OFFSET_SECONDS } from "./pulls-query";
@@ -120,4 +121,10 @@ function RaidRoute() {
   );
 }
 
-export const routeTree = rootRoute.addChildren([indexRoute, raidRoute]);
+const designRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/design",
+  component: DesignGallery,
+});
+
+export const routeTree = rootRoute.addChildren([indexRoute, raidRoute, designRoute]);

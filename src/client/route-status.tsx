@@ -2,33 +2,64 @@ import { Link, SearchParamError } from "@tanstack/react-router";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { AppBrand, AppHeader } from "./components/app-header";
 import { buttonVariants } from "./components/ui/button";
+import { Skeleton } from "./components/ui/skeleton";
 import { RaidLinkError, raidLinkError } from "./raid-search";
-import { cn } from "./lib/utils";
 
+/** Mirrors the raid page layout so the real page replaces it without shifting. */
 export function LoadingRaid() {
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-4 py-10">
-      <p className="text-sm">Loading…</p>
-    </main>
+    <div role="status" aria-live="polite" className="flex h-svh flex-col bg-background">
+      <span className="sr-only">Loading raid…</span>
+      <AppHeader>
+        <AppBrand />
+        <Skeleton className="h-4 w-56" />
+        <span className="flex-1" />
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-7 w-28" />
+      </AppHeader>
+      <div className="flex min-h-0 flex-1">
+        <aside className="flex w-72 shrink-0 flex-col gap-1 border-r bg-card p-2">
+          {Array.from({ length: 12 }, (_, index) => (
+            <Skeleton key={index} className="h-9 w-full" />
+          ))}
+        </aside>
+        <div className="relative grid min-w-0 flex-1 place-items-center bg-black">
+          <p className="animate-pulse text-xs text-muted-foreground">
+            Fetching the report and VOD…
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 border-t bg-card p-3">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} className="h-5 w-full" />
+        ))}
+      </div>
+    </div>
   );
 }
 
 export function RouteFailure({ error }: ErrorComponentProps) {
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-4 py-10">
-      <div className="w-full max-w-md">
-        <p
-          role="alert"
-          className="border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {routeErrorMessage(error)}
-        </p>
-        <Link to="/" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mt-3")}>
-          Load another raid
-        </Link>
-      </div>
-    </main>
+    <div className="flex min-h-svh flex-col bg-background">
+      <AppHeader>
+        <AppBrand />
+      </AppHeader>
+      <main className="grid flex-1 place-items-center px-4 py-10">
+        <div className="flex w-full max-w-md flex-col items-start gap-3">
+          <p
+            role="alert"
+            className="w-full rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-destructive-text"
+          >
+            {routeErrorMessage(error)}
+          </p>
+          <Link to="/" className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Load another raid
+          </Link>
+        </div>
+      </main>
+    </div>
   );
 }
 

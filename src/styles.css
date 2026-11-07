@@ -1,4 +1,4 @@
-/* Theme copied from the auxarmory UI styles: CSS variables, Tailwind theme, Geist. */
+/* Theme from the pull-sync design: neutral dark surfaces, green accent, Geist. Dark only for now. */
 @import "tailwindcss";
 @source "./**/*.{ts,tsx}";
 
@@ -7,79 +7,67 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.9888 0.0073 312.3033);
-  --foreground: oklch(0.3084 0.0182 299.0413);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.3084 0.0182 299.0413);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.3084 0.0182 299.0413);
-  --primary: oklch(0.6268 0.2325 303.9004);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.9464 0.0327 307.1745);
-  --secondary-foreground: oklch(0.3807 0.1661 304.9874);
-  --muted: oklch(0.9668 0.0057 308.3951);
-  --muted-foreground: oklch(0.5406 0.0223 301.8807);
-  --accent: oklch(0.952 0.036 318.8519);
-  --accent-foreground: oklch(0.4007 0.1601 325.6122);
-  --destructive: oklch(0.6368 0.2078 25.3313);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.9024 0.0604 306.703);
-  --input: oklch(0.9024 0.0604 306.703);
-  --ring: oklch(0.7217 0.1767 305.5038);
-  --radius: 0.75rem;
-  --font-sans: Geist, system-ui, sans-serif;
-  --font-serif: Georgia, serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --shadow-color: #000000;
-  --letter-spacing: -0.015em;
-  --spacing: 0.25rem;
-  --shadow-2xs: 0px 2px 12px 0px hsl(0 0% 0% / 0.02);
-  --shadow-xs: 0px 2px 12px 0px hsl(0 0% 0% / 0.02);
-  --shadow-sm: 0px 2px 12px 0px hsl(0 0% 0% / 0.04), 0px 1px 2px -1px hsl(0 0% 0% / 0.04);
-  --shadow: 0px 2px 12px 0px hsl(0 0% 0% / 0.04), 0px 1px 2px -1px hsl(0 0% 0% / 0.04);
-  --shadow-md: 0px 2px 12px 0px hsl(0 0% 0% / 0.04), 0px 2px 4px -1px hsl(0 0% 0% / 0.04);
-  --shadow-lg: 0px 2px 12px 0px hsl(0 0% 0% / 0.04), 0px 4px 6px -1px hsl(0 0% 0% / 0.04);
-  --shadow-xl: 0px 2px 12px 0px hsl(0 0% 0% / 0.04), 0px 8px 10px -1px hsl(0 0% 0% / 0.04);
-  --shadow-2xl: 0px 2px 12px 0px hsl(0 0% 0% / 0.1);
-  --tracking-normal: -0.015em;
-}
-
-.dark {
   color-scheme: dark;
-  --background: oklch(0.2296 0.0177 300.2442);
-  --foreground: oklch(0.9668 0.0057 308.3951);
-  --card: oklch(0.2699 0.0226 300.1311);
-  --card-foreground: oklch(0.9668 0.0057 308.3951);
-  --popover: oklch(0.2699 0.0226 300.1311);
-  --popover-foreground: oklch(0.9668 0.0057 308.3951);
-  --primary: oklch(0.7217 0.1767 305.5038);
-  --primary-foreground: oklch(0.2296 0.0177 300.2442);
-  --secondary: oklch(0.3162 0.1004 300.6528);
-  --secondary-foreground: oklch(0.9668 0.0057 308.3951);
-  --muted: oklch(0.2786 0.0242 298.9078);
-  --muted-foreground: oklch(0.6942 0.0319 304.9236);
-  --accent: oklch(0.3807 0.1661 304.9874);
-  --accent-foreground: oklch(0.9714 0.0141 343.1982);
-  --destructive: oklch(0.4437 0.1613 26.8994);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.3162 0.1004 300.6528);
-  --input: oklch(0.3162 0.1004 300.6528);
-  --ring: oklch(0.7217 0.1767 305.5038);
+
+  /* Surfaces: page, panel (header/cards), raised (inputs/popovers) */
+  --background: oklch(0.1541 0.0046 264.4);
+  --foreground: oklch(0.9303 0.0046 258.3);
+  --card: oklch(0.1768 0.007 258.4);
+  --card-foreground: oklch(0.9303 0.0046 258.3);
+  --popover: oklch(0.1859 0.0069 258.4);
+  --popover-foreground: oklch(0.9303 0.0046 258.3);
+
+  /* Primary is near-white; green is reserved for success/kill state */
+  --primary: oklch(0.9303 0.0046 258.3);
+  --primary-foreground: oklch(0.1541 0.0046 264.4);
+  --secondary: oklch(0.2086 0.0085 264.4);
+  --secondary-foreground: oklch(0.9303 0.0046 258.3);
+  --muted: oklch(0.2086 0.0085 264.4);
+  --muted-foreground: oklch(0.6518 0.0132 259.8);
+  --accent: oklch(0.2298 0.0107 260.7);
+  --accent-foreground: oklch(0.9303 0.0046 258.3);
+
+  --destructive: oklch(0.6909 0.1987 23.9);
+  --destructive-foreground: oklch(0.1541 0.0046 264.4);
+  /* Softer red for death counts and names in text; --destructive is for markers and fills */
+  --destructive-text: oklch(0.7615 0.1421 20.9);
+  --success: oklch(0.7794 0.1655 157.3);
+  --success-foreground: oklch(0.1541 0.0046 264.4);
+  --success-muted: oklch(0.3151 0.0544 160.2);
+  --success-muted-foreground: oklch(0.8331 0.1335 160.5);
+  --warning: oklch(0.8084 0.1273 82.2);
+  --warning-foreground: oklch(0.1541 0.0046 264.4);
+  --warning-muted: oklch(0.3102 0.0469 88.7);
+  --warning-muted-foreground: oklch(0.8429 0.12 84.4);
+
+  --border: oklch(0.2676 0.0103 260.7);
+  --input: oklch(0.323 0.0142 256.8);
+  --ring: oklch(0.7693 0.1175 261.6);
+
+  /* Text ramp beyond foreground/muted-foreground, plus the dashed "add" border */
+  --subtle-foreground: oklch(0.5466 0.0158 258.4);
+  --soft-foreground: oklch(0.7839 0.0114 256.7);
+  --border-strong: oklch(0.3657 0.0138 256.8);
+
+  /* WoW class colors (warcraft.wiki.gg/wiki/Class_colors), used for POV avatar rings */
+  --class-death-knight: oklch(0.5308 0.1969 19.5);
+  --class-demon-hunter: oklch(0.5507 0.2299 316);
+  --class-druid: oklch(0.7261 0.1875 50.9);
+  --class-evoker: oklch(0.6017 0.0942 176.4);
+  --class-hunter: oklch(0.8158 0.1329 127.9);
+  --class-mage: oklch(0.7725 0.1239 219.7);
+  --class-monk: oklch(0.879 0.2143 155.7);
+  --class-paladin: oklch(0.7638 0.1363 352.8);
+  --class-priest: oklch(1 0 0);
+  --class-rogue: oklch(0.95 0.1591 104.8);
+  --class-shaman: oklch(0.5563 0.1869 255.6);
+  --class-warlock: oklch(0.6711 0.1488 281.2);
+  --class-warrior: oklch(0.7188 0.0802 67.9);
+
+  --radius: 0.5rem;
   --font-sans: Geist, system-ui, sans-serif;
-  --font-serif: Georgia, serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --shadow-color: #000000;
-  --letter-spacing: -0.015em;
-  --spacing: 0.25rem;
-  --shadow-2xs: 0px 4px 30px 0px hsl(0 0% 0% / 0.25);
-  --shadow-xs: 0px 4px 30px 0px hsl(0 0% 0% / 0.25);
-  --shadow-sm: 0px 4px 30px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow: 0px 4px 30px 0px hsl(0 0% 0% / 0.5), 0px 1px 2px -1px hsl(0 0% 0% / 0.5);
-  --shadow-md: 0px 4px 30px 0px hsl(0 0% 0% / 0.5), 0px 2px 4px -1px hsl(0 0% 0% / 0.5);
-  --shadow-lg: 0px 4px 30px 0px hsl(0 0% 0% / 0.5), 0px 4px 6px -1px hsl(0 0% 0% / 0.5);
-  --shadow-xl: 0px 4px 30px 0px hsl(0 0% 0% / 0.5), 0px 8px 10px -1px hsl(0 0% 0% / 0.5);
-  --shadow-2xl: 0px 4px 30px 0px hsl(0 0% 0% / 1.25);
-  --tracking-normal: -0.015em;
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
@@ -99,37 +87,50 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-muted: var(--success-muted);
+  --color-success-muted-foreground: var(--success-muted-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-muted: var(--warning-muted);
+  --color-warning-muted-foreground: var(--warning-muted-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-soft-foreground: var(--soft-foreground);
+  --color-class-death-knight: var(--class-death-knight);
+  --color-class-demon-hunter: var(--class-demon-hunter);
+  --color-class-druid: var(--class-druid);
+  --color-class-evoker: var(--class-evoker);
+  --color-class-hunter: var(--class-hunter);
+  --color-class-mage: var(--class-mage);
+  --color-class-monk: var(--class-monk);
+  --color-class-paladin: var(--class-paladin);
+  --color-class-priest: var(--class-priest);
+  --color-class-rogue: var(--class-rogue);
+  --color-class-shaman: var(--class-shaman);
+  --color-class-warlock: var(--class-warlock);
+  --color-class-warrior: var(--class-warrior);
+
+  /* 4px / 6px / 8px / 12px with --radius: 0.5rem */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: Geist, system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-serif: Georgia, serif;
-  --radius: 0.75rem;
-  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
-  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
-  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
-  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
-  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
-  --tracking-normal: var(--tracking-normal);
-  --shadow-2xl: var(--shadow-2xl);
-  --shadow-xl: var(--shadow-xl);
-  --shadow-lg: var(--shadow-lg);
-  --shadow-md: var(--shadow-md);
-  --shadow: var(--shadow);
-  --shadow-sm: var(--shadow-sm);
-  --shadow-xs: var(--shadow-xs);
-  --shadow-2xs: var(--shadow-2xs);
-  --spacing: var(--spacing);
-  --letter-spacing: var(--letter-spacing);
-  --color-shadow-color: var(--shadow-color);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  --font-sans: Geist, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Only popovers float; everything else is flat with 1px borders */
+  --shadow-md: var(--shadow-popover);
+  --shadow-lg: var(--shadow-popover);
 }
 
 @layer base {
@@ -146,6 +147,12 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    letter-spacing: var(--tracking-normal);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
   }
 }
