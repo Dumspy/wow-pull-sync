@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { Lane } from "./contract";
 import { HttpError } from "./http-error";
 import { LANES } from "./lanes";
@@ -13,8 +15,8 @@ export interface LoadedEvents {
 
 /**
  * Deaths for every boss fight, plus the events of each configured lane whose encounter is in
- * the report. The pull list does not depend on any of this, so a failed request leaves that
- * part empty instead of failing the raid.
+ * the report. The pull list does not depend on any of this, so a failed request is logged and
+ * leaves that part empty instead of failing the raid.
  */
 export async function loadReportEvents(
   code: string,
@@ -41,10 +43,9 @@ export async function loadReportEvents(
   const lanes = LANES.filter((lane) => fightsByEncounter.has(lane.encounterId));
 
   const request = (key: string, query: EventsRequest) =>
-    fetchEventsBody(code, clientId, clientSecret, useFixtures, key, query).then(
-      readEvents,
-      keepGoing,
-    );
+    fetchEventsBody(code, clientId, clientSecret, useFixtures, key, query)
+      .then(readEvents)
+      .catch(keepGoing);
 
   const [deaths, ...laneEvents] = await Promise.all([
     request("deaths", {
@@ -72,8 +73,25 @@ export async function loadReportEvents(
   };
 }
 
-function keepGoing(error: Error): WclEvent[] {
-  if (error instanceof HttpError) return [];
+function keepGoing(cause: unknown): WclEvent[] {
+  const kind = eventFailureKind(cause);
 
-  throw error;
+  if (kind == null) throw cause;
+
+  console.warn(`Warcraft Logs events request failed: ${kind}`);
+
+  return [];
+}
+
+/** Kind only. The cause can carry tokens or response bodies, so it is not logged. */
+function eventFailureKind(cause: unknown): string | null {
+  if (cause instanceof HttpError) return "http";
+
+  if (cause instanceof SyntaxError) return "non-json";
+
+  if (cause instanceof z.ZodError) return "schema";
+
+  if (cause instanceof TypeError) return "network";
+
+  return null;
 }
