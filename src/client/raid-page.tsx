@@ -12,6 +12,13 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/u
 import { AddVodChip, VodChip } from "./components/vod-chip";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
 import { Kbd } from "./components/ui/kbd";
 import { formatClock, formatOffset, formatPercent } from "./format";
 import { cn } from "./lib/utils";
@@ -21,6 +28,7 @@ import {
   activeVodIndex,
   searchForPull,
   searchWithOffset,
+  searchWithRecorder,
   searchWithSpells,
   viewSearch,
   type RaidSearch,
@@ -194,6 +202,7 @@ export function RaidPage({
   }, []);
 
   const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
+  const recorders = report.players.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="flex h-svh flex-col bg-background">
@@ -352,6 +361,26 @@ export function RaidPage({
                 className="h-6 w-20 px-2 text-right font-mono text-xs"
               />
             </label>
+            {shown.ref.by == null ? (
+              <Select
+                items={recorders.map((item) => ({ value: String(item.id), label: item.name }))}
+                value={null}
+                onValueChange={(value) => {
+                  if (value != null) onReplaceSearch(searchWithRecorder(search, Number(value)));
+                }}
+              >
+                <SelectTrigger size="sm" className="h-6 font-sans text-xs">
+                  <SelectValue placeholder={`Who recorded ${shown.name}?`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {recorders.map((item) => (
+                    <SelectItem key={item.id} value={String(item.id)}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <span className="flex-1" />
             <span className="inline-flex items-center gap-3.5 font-sans text-muted-foreground">
               <span>

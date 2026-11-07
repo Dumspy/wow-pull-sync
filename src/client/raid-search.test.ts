@@ -6,6 +6,7 @@ import {
   raidViewSearchSchema,
   searchForPull,
   searchWithOffset,
+  searchWithRecorder,
   searchWithVod,
   viewSearch,
 } from "./raid-search";
@@ -62,6 +63,13 @@ describe("raid search", () => {
       spells: [5],
     });
     expect(viewSearch(search)).toEqual({ vods: [YOUTUBE, TWITCH], pov: 1 });
+  });
+
+  it("sets who recorded the VOD on screen only", () => {
+    expect(searchWithRecorder({ vods: [YOUTUBE, TWITCH], pov: 1 }, 7).vods).toEqual([
+      YOUTUBE,
+      { ...TWITCH, by: 7 },
+    ]);
   });
 
   it("adds a VOD at the end, or in place of an expired one, and shows it", () => {

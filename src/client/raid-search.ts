@@ -109,6 +109,13 @@ export function searchWithOffset(current: RaidSearch, offset: number): RaidSearc
   return { ...current, vods };
 }
 
+/** The search with the recorded-by player set on the VOD on screen. */
+export function searchWithRecorder(current: RaidSearch, by: number): RaidSearch {
+  const index = activeVodIndex(current);
+
+  return { ...current, vods: current.vods.map((vod, at) => (at === index ? { ...vod, by } : vod)) };
+}
+
 const currentViewSearch = z.object(vodParams);
 
 export type RaidViewSearch = z.output<typeof currentViewSearch>;
