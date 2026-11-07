@@ -23,10 +23,5 @@
   },
   // `wrangler preview` requires this block. Assets and compatibility_date
   // stay at the top level, so the block can be empty.
-  "previews": {
-    "vars": {
-      "VITE_PREFILL_REPORT_URL": "https://www.warcraftlogs.com/reports/TPYJD2c4VkLZfBp9",
-      "VITE_PREFILL_VOD_URL": "https://youtube.com/live/BLJBhzLNt8w",
-    },
-  },
+  "previews": {},
 }
