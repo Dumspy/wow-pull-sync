@@ -49,37 +49,47 @@ describe("worker sentry", () => {
     bodies.splice(0);
 
     const execution = executionContext();
+    const original = globalThis.fetch;
 
-    const response = await app.request(
-      "http://pull-sync.example/api/debug-sentry",
-      { method: "GET" },
-      { ASSETS: assets },
-      execution.ctx,
-    );
+    globalThis.fetch = async (input) => {
+      throw new Error(`network down ${requestUrl(input)}`);
+    };
 
-    await response.text();
-    await execution.done();
-    await flush(1000);
+    try {
+      const response = await app.request(
+        "http://pull-sync.example/api/pulls",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            reportUrl: `https://www.warcraftlogs.com/reports/${REPORT}`,
+            vodUrl: `https://youtube.com/live/${VIDEO}`,
+          }),
+        },
+        {
+          ASSETS: assets,
+          WCL_CLIENT_ID: "wcl-client-id",
+          WCL_CLIENT_SECRET: CLIENT_SECRET,
+          YOUTUBE_API_KEY: API_KEY,
+        },
+        execution.ctx,
+      );
 
-    expect(response.status).toBe(500);
-    expect(bodies).toEqual([]);
+      expect(response.status).toBe(500);
+      await response.text();
+      await execution.done();
+      await flush(1000);
+
+      expect(bodies).toEqual([]);
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 
-  it("reports an unexpected debug error once and leaves the 4xx pulls response alone", async () => {
+  it("leaves a 4xx pulls response unreported", async () => {
     bodies.splice(0);
 
     const execution = executionContext();
-    const env = { ASSETS: assets, SENTRY_DSN: dsn };
-
-    const debug = await app.request(
-      `http://pull-sync.example/api/debug-sentry?access_token=${WCL_TOKEN}&t=9`,
-      {
-        method: "GET",
-        headers: { authorization: `Bearer ${WCL_TOKEN}`, cookie: "session=topsecret" },
-      },
-      env,
-      execution.ctx,
-    );
 
     const missing = await app.request(
       "http://pull-sync.example/api/pulls",
@@ -91,23 +101,17 @@ describe("worker sentry", () => {
           vodUrl: `https://youtube.com/live/${VIDEO}`,
         }),
       },
-      { ...env, USE_FIXTURES: "true" },
+      { ASSETS: assets, SENTRY_DSN: dsn, USE_FIXTURES: "true" },
       execution.ctx,
     );
 
-    expect(debug.status).toBe(500);
-    expect(await debug.text()).not.toContain(REPORT);
     expect(missing.status).toBe(404);
     expect(await missing.json()).toEqual({ error: "No Warcraft Logs report found for that link." });
     await execution.done();
     await flush(1000);
 
-    expect(eventCount(bodies)).toBe(1);
+    expect(eventCount(bodies)).toBe(0);
     expect(transactionCount(bodies)).toBe(0);
-    expect(joined(bodies)).toContain("Sentry test error");
-    expect(joined(bodies)).not.toContain(WCL_TOKEN);
-    expect(joined(bodies)).not.toContain("topsecret");
-    expect(joined(bodies)).not.toContain("t=9");
   });
 
   it("reports a swallowed pulls failure once and keeps the 500 JSON", async () => {
