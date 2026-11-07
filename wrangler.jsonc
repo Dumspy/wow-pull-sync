@@ -14,6 +14,14 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
+  // Workers Logs. `logs.enabled` persists console output and
+  // `invocation_logs` adds one line per request (status, timing, outcome).
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+    },
+  },
   // `wrangler preview` requires this block. Assets and compatibility_date
   // stay at the top level, so the block can be empty.
   "previews": {},

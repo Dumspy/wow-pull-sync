@@ -1,5 +1,6 @@
 import { readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { cloudflare } from "@cloudflare/vite-plugin";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
@@ -18,6 +19,9 @@ export default defineConfig({
     sourcemap: "hidden",
   },
   plugins: [react(), tailwindcss(), cloudflare(), ...sentryVitePlugins("./dist/**/*.map")],
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src/client", import.meta.url)) },
+  },
 });
 
 export function sentryUploadEnabled(): boolean {

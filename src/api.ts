@@ -8,6 +8,8 @@ import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
 import { buildPulls } from "./pulls";
+import { buildEncounterPhases, buildPlayers } from "./report-meta";
+import { loadReportEvents } from "./report-events";
 import { parseReportCode, parseVideoId } from "./urls";
 import { fetchReportBody } from "./wcl";
 import { fetchYoutubeBody } from "./youtube";
@@ -66,18 +68,23 @@ export const api = new Hono<{ Bindings: Env }>().post(
     }
 
     try {
-      const [reportBody, youtubeBody] = await Promise.all([
-        fetchReportBody(
-          code,
-          c.env.WCL_CLIENT_ID ?? "",
-          c.env.WCL_CLIENT_SECRET ?? "",
-          useFixtures,
+      const clientId = c.env.WCL_CLIENT_ID ?? "";
+      const clientSecret = c.env.WCL_CLIENT_SECRET ?? "";
+
+      const [report, vod] = await Promise.all([
+        fetchReportBody(code, clientId, clientSecret, useFixtures).then(readReport),
+        fetchYoutubeBody(videoId, request.vodUrl, c.env.YOUTUBE_API_KEY ?? "", useFixtures).then(
+          readYoutubeVideo,
         ),
-        fetchYoutubeBody(videoId, request.vodUrl, c.env.YOUTUBE_API_KEY ?? "", useFixtures),
       ]);
 
-      const report = readReport(reportBody);
-      const vod = readYoutubeVideo(youtubeBody);
+      const { events, lanes } = await loadReportEvents(
+        code,
+        clientId,
+        clientSecret,
+        useFixtures,
+        report,
+      );
 
       const response = pullSyncResponseSchema.parse({
         videoId: vod.videoId || videoId,
@@ -86,7 +93,20 @@ export const api = new Hono<{ Bindings: Env }>().post(
         reportTitle: report.title,
         vodStartedAtMs: vod.actualStartMs,
         vodDurationSeconds: vod.durationSeconds,
-        pulls: buildPulls(report, vod, request.offsetSeconds),
+        zone: report.zone ?? null,
+        guild: report.guild
+          ? {
+              id: report.guild.id,
+              name: report.guild.name,
+              server: report.guild.server?.name ?? null,
+              region: report.guild.server?.region?.slug ?? null,
+            }
+          : null,
+        owner: report.owner?.name ?? null,
+        players: buildPlayers(report),
+        encounterPhases: buildEncounterPhases(report),
+        lanes,
+        pulls: buildPulls(report, vod, request.offsetSeconds, events),
       });
 
       return c.json(response, 200);

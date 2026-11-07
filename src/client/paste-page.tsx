@@ -4,7 +4,9 @@ import type { FormEvent } from "react";
 
 import { parseReportCode, parseVideoId } from "../urls";
 import { Button } from "./components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
+import { AppBrand, AppHeader } from "./components/app-header";
+import { PageHeader } from "./components/page-header";
+import { Card, CardContent } from "./components/ui/card";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { devFakePlayer } from "./player";
@@ -67,81 +69,83 @@ export function PastePage() {
   }
 
   return (
-    <main className="grid min-h-svh place-items-center bg-background px-4 py-10">
-      <div className="w-full max-w-md">
-        <header className="mb-4 flex flex-col gap-1">
-          <h1 className="text-lg font-medium tracking-tight">Pull sync</h1>
-          <p className="text-sm text-muted-foreground">
-            Paste a Warcraft Logs report and the YouTube VOD from that night.
-          </p>
-        </header>
-        <Card>
-          <CardHeader>
-            <CardTitle>Raid night</CardTitle>
-            <CardDescription>
-              Offset shifts every timestamp, for stream delay or a trimmed VOD. Default is 0.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="grid gap-3" onSubmit={onSubmit}>
-              <div className="grid gap-1.5">
-                <Label htmlFor="report-url">Warcraft Logs report</Label>
-                <Input
-                  id="report-url"
-                  name="reportUrl"
-                  type="url"
-                  required
-                  placeholder={REPORT}
-                  value={reportUrl}
-                  onChange={(event) => setReportUrl(event.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="vod-url">YouTube VOD</Label>
-                <Input
-                  id="vod-url"
-                  name="vodUrl"
-                  type="url"
-                  required
-                  placeholder={VOD}
-                  value={vodUrl}
-                  onChange={(event) => setVodUrl(event.target.value)}
-                  autoComplete="off"
-                />
-              </div>
-              <div className="grid gap-1.5 sm:max-w-48">
-                <Label htmlFor="offset">Offset (seconds)</Label>
-                <Input
-                  id="offset"
-                  name="offset"
-                  type="number"
-                  step="1"
-                  inputMode="numeric"
-                  value={offsetText}
-                  onChange={(event) => setOffsetText(event.target.value)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Button type="submit">Load pulls</Button>
-                {returnToRaid ? (
-                  <Button type="button" variant="ghost" onClick={() => router.history.back()}>
-                    Back to raid
+    <div className="flex min-h-svh flex-col bg-background">
+      <AppHeader>
+        <AppBrand />
+      </AppHeader>
+      <main className="grid flex-1 place-items-center px-4 py-10">
+        <div className="flex w-full max-w-md flex-col gap-5">
+          <PageHeader
+            title="Sync a raid night"
+            subtitle="Paste a Warcraft Logs report and the YouTube VOD from that night."
+          />
+          <Card variant="panel">
+            <CardContent>
+              <form className="grid gap-4" onSubmit={onSubmit}>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="report-url">Warcraft Logs report</Label>
+                  <Input
+                    id="report-url"
+                    name="reportUrl"
+                    type="url"
+                    required
+                    placeholder={REPORT}
+                    value={reportUrl}
+                    onChange={(event) => setReportUrl(event.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="vod-url">YouTube VOD</Label>
+                  <Input
+                    id="vod-url"
+                    name="vodUrl"
+                    type="url"
+                    required
+                    placeholder={VOD}
+                    value={vodUrl}
+                    onChange={(event) => setVodUrl(event.target.value)}
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="grid gap-1.5 sm:max-w-48">
+                  <Label htmlFor="offset">Offset (seconds)</Label>
+                  <Input
+                    id="offset"
+                    name="offset"
+                    type="number"
+                    step="1"
+                    inputMode="numeric"
+                    value={offsetText}
+                    onChange={(event) => setOffsetText(event.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Shifts every timestamp, for stream delay or a trimmed VOD.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="submit" size="lg">
+                    Load pulls
                   </Button>
-                ) : null}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-        {error ? (
-          <p
-            role="alert"
-            className="mt-3 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
-      </div>
-    </main>
+                  {returnToRaid ? (
+                    <Button type="button" variant="ghost" onClick={() => router.history.back()}>
+                      Back to raid
+                    </Button>
+                  ) : null}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-destructive-text"
+            >
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </main>
+    </div>
   );
 }

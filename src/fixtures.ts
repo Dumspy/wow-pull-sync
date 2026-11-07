@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import wclReport from "../fixtures/wcl-TPYJD2c4VkLZfBp9.json";
+import wclEvents from "../fixtures/wcl-TPYJD2c4VkLZfBp9-events.json";
 import youtubeLive from "../fixtures/yt-BLJBhzLNt8w.json";
 import youtubeLateStart from "../fixtures/yt-BLJBhzLNt8w-late-start.json";
 import youtubeNotLive from "../fixtures/yt-nonlive.json";
@@ -24,6 +25,20 @@ export function fixtureReportBody(code: string): Json {
   }
 
   return recordedJson(wclReport);
+}
+
+/**
+ * Recorded events for the fixture report: `deaths`, and one array per lane id. Anything
+ * else is empty.
+ */
+export function fixtureEventsBody(code: string, key: string): Json {
+  if (code !== FIXTURE_REPORT_CODE) return [];
+
+  if (key === "deaths") return recordedJson(wclEvents.deaths);
+
+  const lane = wclEvents.lanes.find((entry) => entry.id === key);
+
+  return recordedJson(lane?.events ?? []);
 }
 
 export function fixtureYoutubeBody(videoId: string, vodUrl?: string): Json {
