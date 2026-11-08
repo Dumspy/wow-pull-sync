@@ -21,7 +21,14 @@
       "invocation_logs": true,
     },
   },
+  // Upstream WCL and YouTube bodies, so a reload of a finished raid skips the
+  // API calls. Without an id, `wrangler deploy` and `wrangler versions upload`
+  // create the namespace. The worker runs uncached when the binding is missing.
+  "kv_namespaces": [{ "binding": "PULL_CACHE" }],
   // `wrangler preview` requires this block. Assets and compatibility_date
-  // stay at the top level, so the block can be empty.
+  // stay at the top level. Bindings are not inherited, and `wrangler preview`
+  // does not create namespaces, so Previews run uncached until a
+  // `kv_namespaces` entry with an `id` is added here. Entries are raw upstream
+  // bodies keyed by query, so sharing the production namespace is safe.
   "previews": {},
 }

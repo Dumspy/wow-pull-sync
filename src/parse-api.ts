@@ -31,6 +31,8 @@ const reportSchema = z.object({
   code: z.string().catch(""),
   title: z.string().catch("Warcraft Logs report"),
   startTime: z.number(),
+  /** Epoch milliseconds of the last logged event. Grows while the raid is being logged. */
+  endTime: z.number().nullish().catch(null),
   zone: z.object({ id: z.number(), name: z.string() }).nullish().catch(null),
   guild: z
     .object({

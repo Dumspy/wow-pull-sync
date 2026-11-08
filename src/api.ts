@@ -1,7 +1,9 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 
+import { UpstreamCache, type CacheStore } from "./cache";
 import { pullRequestSchema, pullSyncResponseSchema } from "./contract";
 import { HttpError } from "./http-error";
 import { readReport, readYoutubeVideo } from "./parse-api";
@@ -18,6 +20,24 @@ export interface Env {
   WCL_CLIENT_SECRET?: string;
   YOUTUBE_API_KEY?: string;
   USE_FIXTURES?: string;
+  /** Workers KV namespace for upstream bodies. Without it every load goes upstream. */
+  PULL_CACHE?: CacheStore;
+}
+
+/** Runs `work` after the response when the runtime allows it, so a cache write can't delay it. */
+function deferTo(c: Context<{ Bindings: Env }>): (work: Promise<void>) => void {
+  return (work) => {
+    try {
+      c.executionCtx.waitUntil(work);
+    } catch {
+      // No execution context outside the Workers runtime (tests). The write still runs.
+    }
+  };
+}
+
+/** Milliseconds since `start`, rounded for a Server-Timing entry. */
+function since(start: number): number {
+  return Math.round(performance.now() - start);
 }
 
 function pullRequestMessage(error: { issues: { path: PropertyKey[] }[] }): string {
@@ -67,13 +87,22 @@ export const api = new Hono<{ Bindings: Env }>().post(
     try {
       const clientId = c.env.WCL_CLIENT_ID ?? "";
       const clientSecret = c.env.WCL_CLIENT_SECRET ?? "";
+      const cache = new UpstreamCache(c.env.PULL_CACHE, deferTo(c));
+      const started = performance.now();
 
       const [report, vod] = await Promise.all([
-        fetchReportBody(code, clientId, clientSecret, useFixtures).then(readReport),
-        fetchYoutubeBody(videoId, request.vodUrl, c.env.YOUTUBE_API_KEY ?? "", useFixtures).then(
-          readYoutubeVideo,
-        ),
+        fetchReportBody(code, clientId, clientSecret, useFixtures, cache).then(readReport),
+        fetchYoutubeBody(
+          videoId,
+          request.vodUrl,
+          c.env.YOUTUBE_API_KEY ?? "",
+          useFixtures,
+          cache,
+        ).then(readYoutubeVideo),
       ]);
+
+      const metaMs = since(started);
+      const eventsStarted = performance.now();
 
       const { events, lanes } = await loadReportEvents(
         code,
@@ -81,6 +110,16 @@ export const api = new Hono<{ Bindings: Env }>().post(
         clientSecret,
         useFixtures,
         report,
+        cache,
+      );
+
+      c.header(
+        "Server-Timing",
+        [
+          `meta;dur=${metaMs};desc="Report and VOD"`,
+          `events;dur=${since(eventsStarted)};desc="Report events"`,
+          `cache;desc="${cache.hits} hit, ${cache.misses} miss"`,
+        ].join(", "),
       );
 
       const response = pullSyncResponseSchema.parse({

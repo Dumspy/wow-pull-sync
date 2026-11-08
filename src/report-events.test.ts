@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { UpstreamCache } from "./cache";
 import { pullSyncResponseSchema } from "./contract";
 import { fixtureReportBody, fixtureYoutubeBody, FIXTURE_VIDEO_ID } from "./fixtures";
 import { LANES } from "./lanes";
@@ -10,11 +11,12 @@ import { loadReportEvents } from "./report-events";
 import app from "./worker";
 
 const CODE = "TPYJD2c4VkLZfBp9";
+const NO_CACHE = new UpstreamCache(undefined, () => {});
 
 describe("recorded events", async () => {
   const report = readReport(fixtureReportBody(CODE));
   const vod = readYoutubeVideo(fixtureYoutubeBody(FIXTURE_VIDEO_ID));
-  const { events, lanes } = await loadReportEvents(CODE, "", "", true, report);
+  const { events, lanes } = await loadReportEvents(CODE, "", "", true, report, NO_CACHE);
   const pulls = buildPulls(report, vod, 0, events);
   const pull = (fightId: number) => pulls.find((item) => item.fightId === fightId);
 

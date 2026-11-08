@@ -1,8 +1,10 @@
 import { z } from "zod";
 
+import { SETTLED_TTL_SECONDS, type UpstreamCache } from "./cache";
 import { fixtureEventsBody, fixtureReportBody } from "./fixtures";
 import { HttpError } from "./http-error";
 import { jsonBody, type Json } from "./json";
+import { readReport, type ReportSummary } from "./parse-api";
 
 export interface EventsRequest {
   dataType: "Deaths" | "Casts" | "Buffs" | "Debuffs" | "Interrupts" | "Dispels";
@@ -113,16 +115,40 @@ async function accessToken(clientId: string, clientSecret: string): Promise<stri
   return token;
 }
 
+/** A report whose last event is older than this is treated as finished. */
+const SETTLED_AFTER_MS = 60 * 60 * 1000;
+
+/**
+ * Seconds a report and its events may stay cached: long once logging has stopped, and not at
+ * all while the raid may still be uploading, so a reload shows the newest pulls.
+ */
+export function reportCacheTtl(report: ReportSummary, now: number): number | null {
+  if (report.endTime == null) return null;
+
+  return now - report.endTime > SETTLED_AFTER_MS ? SETTLED_TTL_SECONDS : null;
+}
+
 export async function fetchReportBody(
   code: string,
   clientId: string,
   clientSecret: string,
   useFixtures: boolean,
+  cache: UpstreamCache,
 ): Promise<Json> {
   if (useFixtures) return fixtureReportBody(code);
-  const token = await accessToken(clientId, clientSecret);
 
-  return graphql(token, REPORT_QUERY, { code });
+  return cache.json(
+    "wcl-report",
+    { query: REPORT_QUERY, code },
+    async () => graphql(await accessToken(clientId, clientSecret), REPORT_QUERY, { code }),
+    (body) => {
+      try {
+        return reportCacheTtl(readReport(body), Date.now());
+      } catch {
+        return null;
+      }
+    },
+  );
 }
 
 async function graphql(token: string, query: string, variables: Json): Promise<Json> {
@@ -144,7 +170,8 @@ async function graphql(token: string, query: string, variables: Json): Promise<J
 
 /**
  * Every event for the fights, following `nextPageTimestamp`. Returns the events as a JSON
- * array. `fixtureKey` picks the recorded array when `useFixtures` is on.
+ * array. `fixtureKey` picks the recorded array when `useFixtures` is on. `ttl` is the
+ * report's cache lifetime from `reportCacheTtl`.
  */
 export async function fetchEventsBody(
   code: string,
@@ -153,9 +180,25 @@ export async function fetchEventsBody(
   useFixtures: boolean,
   fixtureKey: string,
   request: EventsRequest,
+  cache: UpstreamCache,
+  ttl: number | null,
 ): Promise<Json> {
   if (useFixtures) return fixtureEventsBody(code, fixtureKey);
 
+  return cache.json(
+    "wcl-events",
+    { query: EVENTS_QUERY, code, request: { ...request } },
+    () => fetchEventPages(code, clientId, clientSecret, request),
+    () => ttl,
+  );
+}
+
+async function fetchEventPages(
+  code: string,
+  clientId: string,
+  clientSecret: string,
+  request: EventsRequest,
+): Promise<Json> {
   const token = await accessToken(clientId, clientSecret);
   const events: Json[] = [];
   let startTime: number | null = null;
