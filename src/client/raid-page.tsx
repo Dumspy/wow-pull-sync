@@ -25,7 +25,8 @@ import {
 import { Kbd } from "./components/ui/kbd";
 import { formatClock, formatOffset, formatPercent } from "./format";
 import { cn } from "./lib/utils";
-import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
+import { RaidPlayer, devFakePlayer, type PlayerController, type PlayerGroup } from "./player";
+import { ControlBar, soundFor, useFullscreen, usePlayerStatus } from "./player-controls";
 import { PullList } from "./pull-list";
 import {
   activeVodIndex,
@@ -137,8 +138,54 @@ export function RaidPage({
     if (source) seekFollowers(seconds, source, followers);
   }
 
-  const sync = useRef({ player, source, followers });
-  sync.current = { player, source, followers };
+  // One bar drives every pane on screen. It reads the leader, the pane with sound.
+  const leaderStatus = usePlayerStatus(player);
+  const [stage, setStage] = useState<HTMLDivElement | null>(null);
+  const [stageFullscreen, toggleStageFullscreen] = useFullscreen(stage);
+
+  /** Play or pause every pane together. A follower with no footage then stays paused. */
+  function toggleAll() {
+    if (!player) return;
+
+    if (player.isPlaying()) {
+      player.pause();
+
+      for (const follower of followers) follower.controller.pause();
+
+      return;
+    }
+
+    player.play();
+
+    if (!source) return;
+    const at = player.getCurrentTime();
+
+    for (const follower of followers) {
+      if (sameMoment(at, source, follower.source) != null) follower.controller.play();
+    }
+  }
+
+  /** Seek every pane; paused panes stay paused at the new moment. */
+  function seekGroup(seconds: number) {
+    const wasPlaying = player?.isPlaying() ?? false;
+    seekAll(seconds);
+
+    if (wasPlaying) return;
+    player?.pause();
+
+    for (const follower of followers) follower.controller.pause();
+  }
+
+  const group = useMemo<PlayerGroup>(
+    () => ({
+      onTogglePlay: () => sync.current.toggleAll(),
+      onToggleFullscreen: () => sync.current.toggleStageFullscreen(),
+    }),
+    [],
+  );
+
+  const sync = useRef({ player, source, followers, toggleAll, toggleStageFullscreen });
+  sync.current = { player, source, followers, toggleAll, toggleStageFullscreen };
 
   // Side by side, the other panes follow the leader: same moment, playing or paused with it.
   useEffect(() => {
@@ -317,6 +364,70 @@ export function RaidPage({
   const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
   const recorders = report.players.slice().sort((a, b) => a.name.localeCompare(b.name));
 
+  /** The pull, offset and recorder, after the time in the player bar. Hidden in full screen. */
+  const details = (
+    <span className="@container flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-xs tabular-nums">
+      {activePull ? (
+        <span className="text-muted-foreground">
+          pull <span className="text-foreground">#{activePull.pullNumber}</span>
+          {pullStart != null && playhead >= pullStart ? (
+            <>
+              {" "}
+              · <span className="text-foreground">{formatClock(playhead - pullStart)}</span> in
+            </>
+          ) : null}
+        </span>
+      ) : null}
+      <span className="flex-1" />
+      {shown && !stageFullscreen ? (
+        <label className="inline-flex items-center gap-2 text-muted-foreground">
+          offset
+          <Input
+            aria-label={`Offset in seconds for ${shown.name}`}
+            type="number"
+            step="1"
+            value={offsetText}
+            onChange={(event) => {
+              setOffsetText(event.target.value);
+              onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
+            }}
+            className="h-6 w-20 px-2 text-right font-mono text-xs"
+          />
+        </label>
+      ) : null}
+      {shown && shown.ref.by == null && !stageFullscreen ? (
+        <Select
+          items={recorders.map((item) => ({ value: String(item.id), label: item.name }))}
+          value={null}
+          onValueChange={(value) => {
+            if (value != null) onReplaceSearch(searchWithRecorder(search, Number(value)));
+          }}
+        >
+          <SelectTrigger size="sm" className="h-6 font-sans text-xs">
+            <SelectValue placeholder={`Who recorded ${shown.name}?`} />
+          </SelectTrigger>
+          <SelectContent>
+            {recorders.map((item) => (
+              <SelectItem key={item.id} value={String(item.id)} className="py-1.5">
+                <PlayerName wowClass={item.wowClass}>{item.name}</PlayerName>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+      {stageFullscreen ? null : (
+        <span className="mr-2 inline-flex items-center gap-3 font-sans text-muted-foreground @max-xl:hidden">
+          <span>
+            <Kbd>j</Kbd> <Kbd>k</Kbd> pulls
+          </span>
+          <span>
+            <Kbd>d</Kbd> death
+          </span>
+        </span>
+      )}
+    </span>
+  );
+
   return (
     <div className="flex h-svh flex-col bg-background">
       <AppHeader>
@@ -434,97 +545,52 @@ export function RaidPage({
               Side by side
             </Button>
           </div>
-          <div className="flex min-h-0 flex-1 gap-2">
-            {shownIndexes.map((index) => {
-              const vod = vods[index];
+          <div
+            ref={setStage}
+            className={cn("flex min-h-0 flex-1 flex-col gap-2", stageFullscreen && "bg-black p-2")}
+          >
+            <div className="flex min-h-0 flex-1 gap-2">
+              {shownIndexes.map((index) => {
+                const vod = vods[index];
 
-              if (!vod) return <NoVodPane key="none" onAdd={() => onAddVod(null)} />;
+                if (!vod) return <NoVodPane key="none" onAdd={() => onAddVod(null)} />;
 
-              return (
-                <VideoPane
-                  key={`${index}:${vod.ref.platform}:${vod.ref.id}`}
-                  vod={vod}
-                  source={paneSource(index)}
-                  pull={activePull}
-                  fake={fakePlayer}
-                  register={register}
-                  split={split}
-                  audible={index === activeIndex}
-                  onListen={() => listenTo(index)}
-                  onReplace={() => onAddVod(index)}
-                />
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border bg-card px-4 py-2 font-mono text-xs tabular-nums">
+                return (
+                  <VideoPane
+                    key={`${index}:${vod.ref.platform}:${vod.ref.id}`}
+                    vod={vod}
+                    source={paneSource(index)}
+                    pull={activePull}
+                    fake={fakePlayer}
+                    register={register}
+                    split={split}
+                    group={group}
+                    audible={index === activeIndex}
+                    onListen={() => listenTo(index)}
+                    onReplace={() => onAddVod(index)}
+                  />
+                );
+              })}
+            </div>
             {source ? (
-              <span className="text-[13px]">
-                {formatClock(playhead)}
-                <span className="text-muted-foreground"> / {formatClock(source.duration)}</span>
-              </span>
-            ) : null}
-            {activePull ? (
-              <span className="text-muted-foreground">
-                pull <span className="text-foreground">#{activePull.pullNumber}</span>
-                {pullStart != null && playhead >= pullStart ? (
-                  <>
-                    {" "}
-                    · <span className="text-foreground">
-                      {formatClock(playhead - pullStart)}
-                    </span>{" "}
-                    in
-                  </>
-                ) : null}
-              </span>
-            ) : null}
-            {shown ? (
-              <label className="inline-flex items-center gap-2 text-muted-foreground">
-                {shown.name} offset
-                <Input
-                  aria-label={`Offset in seconds for ${shown.name}`}
-                  type="number"
-                  step="1"
-                  value={offsetText}
-                  onChange={(event) => {
-                    setOffsetText(event.target.value);
-                    onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
-                  }}
-                  className="h-6 w-20 px-2 text-right font-mono text-xs"
-                />
-              </label>
-            ) : null}
-            {shown && shown.ref.by == null ? (
-              <Select
-                items={recorders.map((item) => ({ value: String(item.id), label: item.name }))}
-                value={null}
-                onValueChange={(value) => {
-                  if (value != null) onReplaceSearch(searchWithRecorder(search, Number(value)));
-                }}
+              <ControlBar
+                className="shrink-0 rounded-md border bg-card pt-1"
+                time={leaderStatus?.time ?? playhead}
+                duration={source.duration}
+                playing={leaderStatus?.playing ?? false}
+                sound={soundFor(player, leaderStatus)}
+                fullscreen={stageFullscreen}
+                onTogglePlay={toggleAll}
+                onSeek={seekGroup}
+                onToggleFullscreen={toggleStageFullscreen}
               >
-                <SelectTrigger size="sm" className="h-6 font-sans text-xs">
-                  <SelectValue placeholder={`Who recorded ${shown.name}?`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {recorders.map((item) => (
-                    <SelectItem key={item.id} value={String(item.id)} className="py-1.5">
-                      <PlayerName wowClass={item.wowClass}>{item.name}</PlayerName>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            <span className="flex-1" />
-            <span className="inline-flex items-center gap-3.5 font-sans text-muted-foreground">
-              <span>
-                <Kbd>j</Kbd> prev
-              </span>
-              <span>
-                <Kbd>k</Kbd> next
-              </span>
-              <span>
-                <Kbd>d</Kbd> next death
-              </span>
-            </span>
+                {details}
+              </ControlBar>
+            ) : (
+              <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1.5 rounded-md border bg-card px-4 py-2">
+                {details}
+              </div>
+            )}
           </div>
         </div>
         <aside className="my-3 mr-3 flex w-80 shrink-0 flex-col overflow-hidden rounded-lg border bg-card">
@@ -596,6 +662,7 @@ function VideoPane({
   fake,
   register,
   split,
+  group,
   audible,
   onListen,
   onReplace,
@@ -606,6 +673,7 @@ function VideoPane({
   fake: boolean;
   register: (index: number, controller: PlayerController | null) => void;
   split: boolean;
+  group: PlayerGroup;
   audible: boolean;
   onListen: () => void;
   onReplace: () => void;
@@ -660,6 +728,7 @@ function VideoPane({
               key={`${source.kind}:${source.id}`}
               source={source}
               fake={fake}
+              group={group}
               onController={onController}
             />
           </div>
