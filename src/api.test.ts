@@ -76,7 +76,7 @@ describe("POST /api/report and /api/vod", () => {
     });
   });
 
-  it("serves every other path from the asset binding", async () => {
+  it("serves the page outside /api, and a 404 for any API path the router didn't answer", async () => {
     const env = {
       ASSETS: {
         fetch: async () => new Response("page", { headers: { "content-type": "text/html" } }),
@@ -84,14 +84,15 @@ describe("POST /api/report and /api/vod", () => {
     };
 
     const page = await app.request("http://localhost/", {}, env);
+    const raid = await app.request("http://localhost/raid/TPYJD2c4VkLZfBp9", {}, env);
     const other = await app.request("http://localhost/api/other", {}, env);
     const oldPulls = await app.request("http://localhost/api/pulls", { method: "POST" }, env);
 
     expect(page.status).toBe(200);
     expect(await page.text()).toBe("page");
-    expect(other.status).toBe(200);
-    expect(await other.text()).toBe("page");
-    expect(oldPulls.status).toBe(200);
+    expect(raid.status).toBe(200);
+    expect(other.status).toBe(404);
+    expect(oldPulls.status).toBe(404);
 
     for (const path of ["/api/report", "/api/vod"]) {
       const wrongMethod = await app.request(`http://localhost${path}`, { method: "GET" }, env);
@@ -272,6 +273,39 @@ describe("POST /api/report and /api/vod", () => {
 
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({ reason: "live" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reads a Twitch 404 for the video as not found", async () => {
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input);
+
+      if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+        return Response.json({ access_token: "app-token", expires_in: 3600 });
+      }
+
+      if (url.startsWith("https://api.twitch.tv/helix/videos")) {
+        return Response.json({ error: "Not Found", status: 404 }, { status: 404 });
+      }
+
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    try {
+      const response = await api.request(
+        "/vod",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ vodUrl: "https://www.twitch.tv/videos/2914150345" }),
+        },
+        { TWITCH_CLIENT_ID: "id", TWITCH_CLIENT_SECRET: "secret" },
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ reason: "not-found" });
     } finally {
       vi.unstubAllGlobals();
     }

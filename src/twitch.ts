@@ -50,7 +50,7 @@ async function helix(
   params: Record<string, string>,
   clientId: string,
   clientSecret: string,
-): Promise<Json> {
+): Promise<Json | null> {
   const token = await accessToken(clientId, clientSecret);
   const url = new URL(`${HELIX_URL}/${path}`);
 
@@ -63,12 +63,17 @@ async function helix(
   // A token Twitch revoked early; the next request logs in again.
   if (response.status === 401) cachedToken = null;
 
+  if (response.status === 404) return null;
+
   if (!response.ok) throw new HttpError(502, "Twitch could not be reached.");
 
   return jsonBody.parse(await response.json());
 }
 
-/** `GET /helix/videos` for one video. A missing or expired video comes back as an empty list. */
+/**
+ * `GET /helix/videos` for one video. A missing or expired video comes back as an empty list,
+ * or as a 404, which the docs list for an id Twitch can't find; both read as not found.
+ */
 export async function fetchTwitchVideoBody(
   videoId: string,
   clientId: string,
@@ -77,7 +82,7 @@ export async function fetchTwitchVideoBody(
 ): Promise<Json> {
   if (useFixtures) return fixtureTwitchVideoBody(videoId);
 
-  return helix("videos", { id: videoId }, clientId, clientSecret);
+  return (await helix("videos", { id: videoId }, clientId, clientSecret)) ?? { data: [] };
 }
 
 /** `GET /helix/streams` for the channel. It lists the stream only while it is live. */
@@ -89,5 +94,9 @@ export async function fetchTwitchStreamsBody(
 ): Promise<Json> {
   if (useFixtures) return fixtureTwitchStreamsBody();
 
-  return helix("streams", { user_id: userId }, clientId, clientSecret);
+  const body = await helix("streams", { user_id: userId }, clientId, clientSecret);
+
+  if (!body) throw new HttpError(502, "Twitch could not be reached.");
+
+  return body;
 }
