@@ -9,6 +9,7 @@ import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { Dot } from "./components/dot";
 import { PaneCaption } from "./components/pane-caption";
+import { PlayerName } from "./components/player-name";
 import { StatChip } from "./components/stat-chip";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
 import { AddVodChip, VodChip } from "./components/vod-chip";
@@ -503,8 +504,8 @@ export function RaidPage({
                 </SelectTrigger>
                 <SelectContent>
                   {recorders.map((item) => (
-                    <SelectItem key={item.id} value={String(item.id)}>
-                      {item.name}
+                    <SelectItem key={item.id} value={String(item.id)} className="py-1.5">
+                      <PlayerName wowClass={item.wowClass}>{item.name}</PlayerName>
                     </SelectItem>
                   ))}
                 </SelectContent>

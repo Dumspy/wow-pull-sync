@@ -12,6 +12,7 @@ import { Dot } from "./components/dot";
 import { Notice } from "./components/notice";
 import { NumberedStep } from "./components/numbered-step";
 import { PaneCaption } from "./components/pane-caption";
+import { PlayerName } from "./components/player-name";
 import { PovAvatar } from "./components/pov-avatar";
 import { Button, buttonVariants } from "./components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./components/ui/empty";
@@ -242,9 +243,8 @@ export function AddVodPage({
               </SelectTrigger>
               <SelectContent>
                 {players.map((item) => (
-                  <SelectItem key={item.id} value={String(item.id)}>
-                    {item.name}
-                    {item.spec ? <span className="text-muted-foreground">{item.spec}</span> : null}
+                  <SelectItem key={item.id} value={String(item.id)} className="py-1.5">
+                    <PlayerName wowClass={item.wowClass}>{item.name}</PlayerName>
                   </SelectItem>
                 ))}
               </SelectContent>
