@@ -4,6 +4,8 @@ YOUTUBE_API_KEY=
 TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
 USE_FIXTURES=
+# Dev-only, with USE_FIXTURES=true: replay the recorded night as if it were live now.
+FIXTURE_LIVE_REPLAY=
 # Optional. Leave unset to keep Sentry off. Never commit a real DSN.
 # SENTRY_DSN=
 TWITCH_CLIENT_ID=

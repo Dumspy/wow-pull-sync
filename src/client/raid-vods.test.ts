@@ -14,6 +14,7 @@ const LOADED = {
   title: "Mythic Ulasnek",
   startedAtMs: 1_000,
   durationSeconds: 8429,
+  live: false,
 } as const;
 
 describe("raidVod", () => {
@@ -23,6 +24,7 @@ describe("raidVod", () => {
       1,
       { data: LOADED, error: null },
       PLAYERS,
+      0,
     );
 
     expect(vod).toMatchObject({
@@ -40,6 +42,7 @@ describe("raidVod", () => {
       0,
       { data: undefined, error: null },
       PLAYERS,
+      0,
     );
 
     expect(vod).toMatchObject({ name: "VOD 1", status: "loading", source: null });
@@ -53,6 +56,7 @@ describe("raidVod", () => {
       0,
       { data: undefined, error: new VodLoadError("We couldn't find this video.", "not-found") },
       PLAYERS,
+      0,
     );
 
     const broken = raidVod(
@@ -60,9 +64,24 @@ describe("raidVod", () => {
       0,
       { data: undefined, error: new VodLoadError("Twitch could not be reached.", null) },
       PLAYERS,
+      0,
     );
 
     expect(gone.status).toBe("expired");
     expect(broken).toMatchObject({ status: "failed", error: "Twitch could not be reached." });
+  });
+});
+
+describe("raidVod for a running stream", () => {
+  it("grows the source with the clock, so new pulls land inside it", () => {
+    const vod = raidVod(
+      { platform: "twitch", id: "2914150345", by: 12 },
+      0,
+      { data: { ...LOADED, durationSeconds: 60, live: true }, error: null },
+      PLAYERS,
+      1_000 + 2 * 3600_000,
+    );
+
+    expect(vod).toMatchObject({ live: true, source: { duration: 2 * 3600 } });
   });
 });
