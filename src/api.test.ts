@@ -177,6 +177,8 @@ describe("POST /api/report and /api/vod", () => {
 
     expect(body.pulls[0]?.encounterId).toBe(3492);
     expect(body.pulls.at(-1)?.encounterId).toBe(3379);
+    // The recorded night ended long ago.
+    expect(body.live).toBe(false);
   });
 
   it("returns the VOD's start time and length", async () => {
@@ -197,6 +199,7 @@ describe("POST /api/report and /api/vod", () => {
       title: "Average Pillagers - 29/10/26",
       startedAtMs: Date.parse("2026-10-29T18:38:02Z"),
       durationSeconds: 9495,
+      live: false,
     });
   });
 
@@ -228,6 +231,7 @@ describe("POST /api/report and /api/vod", () => {
       title: "Mythic Ulasnek",
       startedAtMs: Date.parse("2026-10-29T18:59:37Z"),
       durationSeconds: 2 * 3600 + 20 * 60 + 29,
+      live: false,
     });
   });
 

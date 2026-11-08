@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Columns2, Volume2, VolumeX } from "lucide-react";
+import { Columns2, RefreshCw, Volume2, VolumeX } from "lucide-react";
 
 import { pullSecondsIn, sameMoment, type VideoSource } from "../source";
 import type { Pull, ReportResponse } from "../types";
@@ -43,9 +43,20 @@ import {
 import { useRaidVods, type RaidVod } from "./raid-vods";
 import { Timeline, usePlayhead } from "./timeline";
 
+/** The report's last fetch, and a way to fetch it and the VODs again now. */
+export interface RaidRefresh {
+  /** Epoch milliseconds of the last good fetch. */
+  updatedAt: number;
+  refreshing: boolean;
+  /** The last fetch failed; the page still shows the data from before it. */
+  failed: boolean;
+  onRefresh: () => void;
+}
+
 export function RaidPage({
   report,
   search,
+  refresh,
   onSelectPull,
   onReplaceSearch,
   onAddVod,
@@ -53,6 +64,7 @@ export function RaidPage({
 }: {
   report: ReportResponse;
   search: RaidSearch;
+  refresh: RaidRefresh;
   onSelectPull: (fightId: number, seconds: number | null) => void;
   onReplaceSearch: (search: RaidSearch) => void;
   /** Opens the Add VOD page; `replace` is the index of an expired VOD to swap out. */
@@ -198,10 +210,13 @@ export function RaidPage({
     onReplaceSearch(searchForPull(search, first.fightId, seekSeconds(first, source)));
   }, [report.pulls, onReplaceSearch, search, source, shown?.status]);
 
+  const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
+
+  // Keyed on the second the pull starts, not on the source or the pull list: a live raid
+  // refreshes both, and that must not pull the video back to the pull start.
   useEffect(() => {
     if (!player) return;
-    const pull = report.pulls.find((item) => item.fightId === search.pull);
-    const seconds = resumeAt.current ?? (pull ? pullSecondsIn(pull, source) : null);
+    const seconds = resumeAt.current ?? pullStart;
 
     if (seconds == null) return;
 
@@ -212,7 +227,7 @@ export function RaidPage({
 
       if (leading) seekFollowers(seconds, leading, others);
     });
-  }, [player, source, report.pulls, search.pull]);
+  }, [player, pullStart]);
 
   function selectPull(pull: Pull) {
     track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill });
@@ -314,7 +329,6 @@ export function RaidPage({
     onReplaceSearch({ ...search, pov: index });
   }
 
-  const pullStart = activePull ? pullSecondsIn(activePull, source) : null;
   const recorders = report.players.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -343,6 +357,7 @@ export function RaidPage({
         <StatChip tone="neutral" value={report.pulls.length - kills}>
           {report.pulls.length - kills === 1 ? "wipe" : "wipes"}
         </StatChip>
+        {report.live ? <LiveChip refresh={refresh} /> : <RefreshButton refresh={refresh} />}
         <span className="flex-1" />
         <div className="flex items-center gap-1">
           <Button
@@ -401,7 +416,7 @@ export function RaidPage({
                 <VodChip
                   key={`${vod.ref.platform}:${vod.ref.id}:${vod.index}`}
                   name={vod.name}
-                  platform={vod.platformLabel}
+                  platform={vod.live ? `${vod.platformLabel} · live` : vod.platformLabel}
                   wowClass={vod.wowClass}
                   offset={formatOffset(offset)}
                   covers={covers}
@@ -555,6 +570,52 @@ export function RaidPage({
         onSeek={seek}
       />
     </div>
+  );
+}
+
+/** The log is still being written. The page fetches it again every half minute on its own. */
+function LiveChip({ refresh }: { refresh: RaidRefresh }) {
+  const updated = new Date(refresh.updatedAt).toLocaleTimeString();
+
+  return (
+    <span
+      title={
+        refresh.failed
+          ? `Couldn't fetch the log. Showing it as of ${updated}; trying again shortly.`
+          : `This log is still being written. New pulls show up on their own. Updated ${updated}.`
+      }
+      className="inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs text-foreground"
+    >
+      <Dot tone={refresh.failed ? "warning" : "destructive"} className="animate-pulse" />
+      Live
+    </span>
+  );
+}
+
+/**
+ * For a log that doesn't look live: it may have gone quiet for longer than the live window
+ * while the raid went on, or a VOD failed to load.
+ */
+function RefreshButton({ refresh }: { refresh: RaidRefresh }) {
+  const updated = new Date(refresh.updatedAt).toLocaleTimeString();
+
+  const title = refresh.failed
+    ? `Couldn't refresh. Showing the log from ${updated}.`
+    : `Updated ${updated}. Fetch the log and VODs again.`;
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="ghost"
+      title={title}
+      disabled={refresh.refreshing}
+      onClick={refresh.onRefresh}
+      className={cn(refresh.failed && "text-destructive-text")}
+    >
+      <RefreshCw className={cn(refresh.refreshing && "animate-spin")} />
+      {refresh.failed ? "Refresh failed" : "Refresh"}
+    </Button>
   );
 }
 

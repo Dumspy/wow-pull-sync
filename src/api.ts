@@ -12,12 +12,16 @@ import {
   vodResponseSchema,
 } from "./contract";
 import { HttpError } from "./http-error";
+import { isLogLive } from "./live";
+import { replayReportBody, replayYoutubeBody } from "./live-replay";
+import { FIXTURE_REPORT_START_MS } from "./fixtures";
 import {
   isStreamLive,
   readReport,
   readTwitchVideo,
   readYoutubeVideo,
   VOD_ERRORS,
+  type ReportSummary,
   type VodSummary,
 } from "./parse-api";
 import { buildPulls } from "./pulls";
@@ -41,6 +45,8 @@ export interface Env {
   TWITCH_CLIENT_ID?: string;
   TWITCH_CLIENT_SECRET?: string;
   USE_FIXTURES?: string;
+  /** Dev-only, with `USE_FIXTURES`: replay the recorded night as if it were live now. */
+  FIXTURE_LIVE_REPLAY?: string;
   SENTRY_DSN?: string;
 }
 
@@ -73,11 +79,15 @@ function failure(error: HttpError | null, fallback: string) {
   return { body, status: 502 as const };
 }
 
-/** The past broadcast, rejected while its stream is still running. */
+/**
+ * The past broadcast, rejected while its stream is still running: Twitch doesn't reliably let
+ * every viewer play or seek a broadcast that is still going, so live raids are YouTube only.
+ */
 async function loadTwitchVideo(
   videoId: string,
   env: Env,
   useFixtures: boolean,
+  replay: boolean,
 ): Promise<VodSummary> {
   const clientId = env.TWITCH_CLIENT_ID ?? "";
   const clientSecret = env.TWITCH_CLIENT_SECRET ?? "";
@@ -86,11 +96,44 @@ async function loadTwitchVideo(
     await fetchTwitchVideoBody(videoId, clientId, clientSecret, useFixtures),
   );
 
-  const streams = await fetchTwitchStreamsBody(video.userId, clientId, clientSecret, useFixtures);
+  // In the replay the recorded broadcast is still going.
+  const streams = replay
+    ? { data: [{ id: video.streamId }] }
+    : await fetchTwitchStreamsBody(video.userId, clientId, clientSecret, useFixtures);
 
   if (isStreamLive(streams, video.streamId)) throw new HttpError(400, VOD_ERRORS.live, "live");
 
-  return video;
+  return { ...video, live: false };
+}
+
+/** When the log last had anything written to it. Older reports may lack `endTime`. */
+function reportEndMs(report: ReportSummary): number {
+  if (report.endTime != null) return report.endTime;
+
+  const lastFightEnd = Math.max(0, ...report.fights.map((fight) => fight.endTime));
+
+  return report.startTime + lastFightEnd;
+}
+
+async function loadYoutubeVideo(
+  videoId: string,
+  vodUrl: string,
+  env: Env,
+  useFixtures: boolean,
+  replay: boolean,
+): Promise<VodSummary> {
+  const body = await fetchYoutubeBody(videoId, vodUrl, env.YOUTUBE_API_KEY ?? "", useFixtures);
+  const now = Date.now();
+
+  return readYoutubeVideo(
+    replay ? replayYoutubeBody(body, FIXTURE_REPORT_START_MS, now) : body,
+    now,
+  );
+}
+
+/** The live replay runs on fixtures only, so it can never touch real data. */
+function liveReplay(env: Env): boolean {
+  return env.USE_FIXTURES === "true" && env.FIXTURE_LIVE_REPLAY === "true";
 }
 
 const reportFailure = "Something went wrong loading that raid.";
@@ -118,6 +161,7 @@ export const api = new Hono<{ Bindings: Env }>()
       }
 
       const useFixtures = c.env.USE_FIXTURES === "true";
+      const replay = liveReplay(c.env);
 
       if (!useFixtures && (!c.env.WCL_CLIENT_ID || !c.env.WCL_CLIENT_SECRET)) {
         return c.json({ error: "WCL API credentials are not configured." }, 500);
@@ -127,7 +171,8 @@ export const api = new Hono<{ Bindings: Env }>()
         const clientId = c.env.WCL_CLIENT_ID ?? "";
         const clientSecret = c.env.WCL_CLIENT_SECRET ?? "";
 
-        const report = readReport(await fetchReportBody(code, clientId, clientSecret, useFixtures));
+        const body = await fetchReportBody(code, clientId, clientSecret, useFixtures);
+        const report = readReport(replay ? replayReportBody(body, Date.now()) : body);
 
         const events = await loadReportEvents(code, clientId, clientSecret, useFixtures, report);
 
@@ -156,6 +201,7 @@ export const api = new Hono<{ Bindings: Env }>()
             pulls.flatMap((pull) => pull.casts.map((cast) => cast.spellId)),
           ),
           pulls,
+          live: isLogLive(reportEndMs(report), Date.now()),
         });
 
         return c.json(response, 200);
@@ -186,6 +232,7 @@ export const api = new Hono<{ Bindings: Env }>()
       }
 
       const useFixtures = c.env.USE_FIXTURES === "true";
+      const replay = liveReplay(c.env);
 
       if (link.platform === "twitch") {
         if (!useFixtures && (!c.env.TWITCH_CLIENT_ID || !c.env.TWITCH_CLIENT_SECRET)) {
@@ -198,15 +245,8 @@ export const api = new Hono<{ Bindings: Env }>()
       try {
         const vod =
           link.platform === "twitch"
-            ? await loadTwitchVideo(link.id, c.env, useFixtures)
-            : readYoutubeVideo(
-                await fetchYoutubeBody(
-                  link.id,
-                  request.vodUrl,
-                  c.env.YOUTUBE_API_KEY ?? "",
-                  useFixtures,
-                ),
-              );
+            ? await loadTwitchVideo(link.id, c.env, useFixtures, replay)
+            : await loadYoutubeVideo(link.id, request.vodUrl, c.env, useFixtures, replay);
 
         const response = vodResponseSchema.parse({
           platform: link.platform,
@@ -214,6 +254,7 @@ export const api = new Hono<{ Bindings: Env }>()
           title: vod.title,
           startedAtMs: vod.actualStartMs,
           durationSeconds: vod.durationSeconds,
+          live: vod.live,
         });
 
         return c.json(response, 200);

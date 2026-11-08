@@ -18,6 +18,8 @@ You paste a WCL report link and a YouTube VOD link and get a review page at a re
 
 The UI follows the new design system (paste page, raid page, loading and error states), and there is a `/design` gallery of the components.
 
+A raid can be followed while it happens. A report whose end time is under 30 minutes old counts as live, shows a Live badge and is fetched again every 30 seconds, so new pulls appear on their own. A YouTube stream that is still running can be added as a VOD; Twitch VODs wait until the stream has ended. A log that isn't live has a Refresh button instead.
+
 Cookieless PostHog analytics and the anti-slop lint rules (phase 0) are in place.
 
 The site runs on Cloudflare Workers and is behind Cloudflare Access for now.

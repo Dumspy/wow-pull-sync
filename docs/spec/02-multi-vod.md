@@ -25,11 +25,12 @@ Let a raid have several VODs from YouTube and Twitch, each showing a different p
 Both screens are in the design file [`docs/design/pull-sync-designs.html`](../design/pull-sync-designs.html) ("Add VOD" and "Replay inspector").
 
 - **Add VOD**, its own page under the raid (Raids / raid / Add VOD). The video preview is on the left and three steps are on the right:
-  1. Recording: paste the link and pick the recorded-by character from the report's players. A valid link shows its platform and length ("YouTube 2:41:07 · a finished recording").
+  1. Recording: paste the link and pick the recorded-by character from the report's players. A valid link shows its platform and length ("YouTube 2:41:07 · a finished recording", or "so far · still live" for a stream that is still running).
   2. Offset: a guessed offset (for example "+6.0s, guessed from the pull #3 start") with −1s, −0.1s, +0.1s and +1s nudges. Under the preview: "Log says: Pull #3 starts 0:00 → Video should show: pull timer at 31:35".
   3. Check other pulls: jump to later pulls to confirm the offset holds across the night.
      Then Save VOD or Cancel. A bad link turns the input red, dims steps 2 and 3, disables Save, and shows one of:
-  - Still live: "This stream is still live. Add it once the stream has ended and the recording is available."
+  - Not started: "This stream hasn't started yet. Add it once the stream is live."
+  - Twitch still live: "This Twitch stream is still live. Twitch VODs can be added once the stream has ended. Live raids work with YouTube streams."
   - Not found: "We couldn't find this video. Check the link, and that the video is public or unlisted."
   - Not a stream: "This isn't a recorded live stream. pull-sync needs a stream recording to line up with the log. Uploads and highlights have no start time."
   - Wrong link: "This link is not supported. pull-sync works with YouTube and Twitch recordings."
@@ -68,11 +69,12 @@ Both screens are in the design file [`docs/design/pull-sync-designs.html`](../de
 - Each VOD shows its recorded-by character.
 - Nudging a VOD's offset moves only that VOD and the change is visible straight away.
 - An expired or deleted Twitch VOD shows the "VOD expired" overlay, and the pull list and timeline still work. Replace link lets me swap in a new link.
-- Pasting a live stream, an upload or highlight, a missing video or an unsupported link shows the matching error and Save stays disabled.
+- Pasting a stream that hasn't started, an upload or highlight, a missing video or an unsupported link shows the matching error and Save stays disabled.
 
 ## Data and dependencies
 
 - Each VOD needs a real start time on the wall clock. For YouTube this is the live stream's actual start time, as today.
+- A YouTube stream that is still running can be added. A Twitch stream that is still live can't: Twitch doesn't reliably let every viewer play or seek a broadcast in progress. Its length so far is the time since it started, and it grows on the page until the stream ends.
 - For Twitch, only past broadcasts (archive VODs) are supported. Their start time is the Twitch API's video creation time (`created_at`). Checked against the 29 Oct 2026 fixture night, it lands within about 4 to 5 seconds of the real pull, the same as YouTube, and the offset nudge covers the rest. Highlights and uploads have no usable start time and are not supported, like YouTube uploads.
 - A Twitch stream that drops and reconnects is split into several VODs. Each one is added as its own VOD.
 - Twitch removes VODs after a while (about 14 days for affiliates, 60 for partners). When the API no longer returns a VOD, the inspector shows the "VOD expired" overlay.

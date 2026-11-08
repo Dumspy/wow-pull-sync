@@ -32,6 +32,7 @@ const reportSchema = z.object({
   code: z.string().catch(""),
   title: z.string().catch("Warcraft Logs report"),
   startTime: z.number(),
+  endTime: z.number().nullish().catch(null),
   zone: z.object({ id: z.number(), name: z.string() }).nullish().catch(null),
   guild: z
     .object({
@@ -172,7 +173,10 @@ export interface VodSummary {
   videoId: string;
   title: string;
   actualStartMs: number;
+  /** Length so far while `live`. */
   durationSeconds: number;
+  /** The stream is still running. */
+  live: boolean;
 }
 
 export function readReport(body: Json): ReportSummary {
@@ -224,11 +228,13 @@ export function readEvents(body: Json): WclEvent[] {
 export const VOD_ERRORS = {
   unsupported: vodErrorMessage("unsupported"),
   "not-found": vodErrorMessage("not-found"),
+  upcoming: vodErrorMessage("upcoming"),
   live: vodErrorMessage("live"),
   "not-stream": vodErrorMessage("not-stream"),
 } as const;
 
-export function readYoutubeVideo(body: Json): VodSummary {
+/** `nowMs` gives a running stream its length so far. */
+export function readYoutubeVideo(body: Json, nowMs = Date.now()): VodSummary {
   const parsed = youtubeResponseSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -239,36 +245,50 @@ export function readYoutubeVideo(body: Json): VodSummary {
 
   if (!item) throw new HttpError(404, VOD_ERRORS["not-found"], "not-found");
 
-  const live = item.liveStreamingDetails;
+  const stream = item.liveStreamingDetails;
 
-  if (!live) throw new HttpError(400, VOD_ERRORS["not-stream"], "not-stream");
+  if (!stream) throw new HttpError(400, VOD_ERRORS["not-stream"], "not-stream");
 
-  // A scheduled stream has no start yet; a running one has no end yet.
-  if (!live.actualStartTime || !live.actualEndTime) {
-    throw new HttpError(400, VOD_ERRORS.live, "live");
-  }
+  // A scheduled stream has no start yet.
+  if (!stream.actualStartTime) throw new HttpError(400, VOD_ERRORS.upcoming, "upcoming");
 
-  const duration = item.contentDetails ? parseIso8601Duration(item.contentDetails.duration) : null;
-
-  if (duration == null) {
-    throw new HttpError(502, "YouTube did not return a video length.");
-  }
-
-  const actualStartMs = Date.parse(live.actualStartTime);
+  const actualStartMs = Date.parse(stream.actualStartTime);
 
   if (!Number.isFinite(actualStartMs)) {
     throw new HttpError(502, "YouTube returned an unexpected start time.");
   }
 
-  return {
-    videoId: item.id,
-    title: item.snippet?.title ?? "YouTube VOD",
-    actualStartMs,
-    durationSeconds: duration,
-  };
+  const title = item.snippet?.title ?? "YouTube VOD";
+
+  // A running stream has no end yet, and its video length reads as zero.
+  if (!stream.actualEndTime) {
+    return {
+      videoId: item.id,
+      title,
+      actualStartMs,
+      durationSeconds: Math.max(0, (nowMs - actualStartMs) / 1000),
+      live: true,
+    };
+  }
+
+  const duration = item.contentDetails ? parseIso8601Duration(item.contentDetails.duration) : null;
+  const actualEndMs = Date.parse(stream.actualEndTime);
+
+  // Just after a stream ends, YouTube can still report a zero length; the stream times cover it.
+  const length =
+    duration || !Number.isFinite(actualEndMs)
+      ? duration
+      : Math.max(0, (actualEndMs - actualStartMs) / 1000);
+
+  if (length == null) {
+    throw new HttpError(502, "YouTube did not return a video length.");
+  }
+
+  return { videoId: item.id, title, actualStartMs, durationSeconds: length, live: false };
 }
 
-export interface TwitchVideo extends VodSummary {
+/** A past broadcast. Whether its stream is still running takes a second request. */
+export interface TwitchVideo extends Omit<VodSummary, "live"> {
   /** The channel, for checking whether the stream is still live. */
   userId: string;
   /** The broadcast this archive came from. */
