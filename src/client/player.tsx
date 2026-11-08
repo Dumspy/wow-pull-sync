@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Json } from "../json";
 import type { VideoSource } from "../source";
 import { track } from "./analytics";
 import { formatClock, formatSeconds } from "./format";
+import { PlayerFrame } from "./player-controls";
 
 export interface PlayerController {
   /** Seeks and plays. */
@@ -14,6 +15,10 @@ export interface PlayerController {
   isPlaying(): boolean;
   /** Side by side keeps every pane but one muted. Applied once the player is ready. */
   setMuted(muted: boolean): void;
+  isMuted(): boolean;
+  /** From 0 to 1. Applied once the player is ready. */
+  setVolume(volume: number): void;
+  getVolume(): number;
   /** If the player is already ready, the listener runs now. Returns unsubscribe. */
   onReady(listener: () => void): () => void;
 }
@@ -24,6 +29,7 @@ interface YtPlayer {
   pauseVideo(): void;
   mute(): void;
   unMute(): void;
+  setVolume(volume: number): void;
   destroy(): void;
   getCurrentTime(): Json;
 }
@@ -33,6 +39,10 @@ interface YtPlayerOptions {
   width: string;
   height: string;
   playerVars: {
+    controls: number;
+    disablekb: number;
+    fs: number;
+    iv_load_policy: number;
     rel: number;
     modestbranding: number;
     playsinline: number;
@@ -50,6 +60,7 @@ interface TwitchPlayer {
   play(): void;
   pause(): void;
   setMuted(muted: boolean): void;
+  setVolume(volume: number): void;
   getCurrentTime(): Json;
   addEventListener(event: string, listener: () => void): void;
 }
@@ -61,6 +72,11 @@ interface TwitchPlayerOptions {
   /** Hostnames of the page embedding the player. Twitch refuses to play without a match. */
   parent: string[];
   autoplay: boolean;
+  /**
+   * Not in Twitch's docs, but the player honours it: false hides the controls, title and Follow
+   * button. Our own controls replace them, and Twitch can't be covered or clipped instead.
+   */
+  controls: boolean;
 }
 
 declare global {
@@ -128,24 +144,55 @@ export function devFakePlayer(): boolean {
   return new URLSearchParams(window.location.search).get("player") === "fake";
 }
 
+/** Letterbox to clip off each embed, sized to YouTube's title and logo strips. Twitch can't be clipped. */
+const CROP = { youtube: 72, twitch: 0 } as const;
+
+export interface PlayerGroup {
+  onTogglePlay: () => void;
+  onToggleFullscreen: () => void;
+}
+
+/** The VOD's own embed under our controls, so YouTube and Twitch look and work the same. */
 export function RaidPlayer({
   source,
   fake,
+  group,
   onController,
 }: {
   source: VideoSource;
   fake: boolean;
+  /** The page draws the bar for every pane: no bar of its own, and clicks drive the page's. */
+  group?: PlayerGroup;
   onController: (player: PlayerController | null) => void;
 }) {
-  if (fake) {
-    return <FakePlayer duration={source.duration} onController={onController} />;
-  }
+  const [player, setPlayer] = useState<PlayerController | null>(null);
+  const onControllerRef = useRef(onController);
+  onControllerRef.current = onController;
 
-  if (source.kind === "twitch") {
-    return <TwitchVideoPlayer videoId={source.id} onController={onController} />;
-  }
+  const register = useCallback((next: PlayerController | null) => {
+    setPlayer(next);
+    onControllerRef.current(next);
+  }, []);
 
-  return <YoutubePlayer videoId={source.id} onController={onController} />;
+  return (
+    <PlayerFrame
+      player={player}
+      duration={source.duration}
+      coverable={fake || source.kind !== "twitch"}
+      crop={fake ? 0 : CROP[source.kind]}
+      bar={!group}
+      onClick={group?.onTogglePlay}
+      onDoubleClick={group?.onToggleFullscreen}
+    >
+      {fake ? (
+        <FakePlayer duration={source.duration} onController={register} />
+      ) : source.kind === "twitch" ? (
+        <TwitchVideoPlayer videoId={source.id} onController={register} />
+      ) : (
+        <YoutubePlayer videoId={source.id} onController={register} />
+      )}
+    </PlayerFrame>
+  );
 }
 
 function YoutubePlayer({
@@ -170,6 +217,7 @@ function YoutubePlayer({
     let pending: number | null = null;
     let seekTarget: number | null = null;
     let muted = false;
+    let volume = 1;
     const listeners = new Set<() => void>();
 
     const noteState = (state: number) => {
@@ -226,6 +274,17 @@ function YoutubePlayer({
         if (next) player.mute();
         else player.unMute();
       },
+      isMuted() {
+        return muted;
+      },
+      setVolume(next) {
+        volume = next;
+
+        if (ready) player?.setVolume(Math.round(next * 100));
+      },
+      getVolume() {
+        return volume;
+      },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
@@ -246,7 +305,12 @@ function YoutubePlayer({
         videoId,
         width: "100%",
         height: "100%",
+        // Our own controls sit on top, so YouTube's are off.
         playerVars: {
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          iv_load_policy: 3,
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
@@ -258,6 +322,7 @@ function YoutubePlayer({
             ready = true;
 
             if (muted) player?.mute();
+            player?.setVolume(Math.round(volume * 100));
 
             if (pending != null) {
               seekTarget = pending;
@@ -308,13 +373,14 @@ function TwitchVideoPlayer({
     let cancelled = false;
     let player: TwitchPlayer | null = null;
     let ready = false;
-    // Twitch ignores seek() until playback has started. It also won't start without a click
-    // while anything covers the embed, so captions sit above the player, never on it.
+    // Twitch ignores seek() until playback has started. It also pauses itself, and then ignores
+    // play(), while anything covers the embed, so captions and controls sit around it, never on it.
     let started = false;
     let pending: number | null = null;
     let seekTarget: number | null = null;
     let playing = false;
     let muted = false;
+    let volume = 1;
     const listeners = new Set<() => void>();
 
     const controller: PlayerController = {
@@ -363,6 +429,17 @@ function TwitchVideoPlayer({
 
         if (ready) player?.setMuted(next);
       },
+      isMuted() {
+        return muted;
+      },
+      setVolume(next) {
+        volume = next;
+
+        if (ready) player?.setVolume(next);
+      },
+      getVolume() {
+        return volume;
+      },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
@@ -388,10 +465,12 @@ function TwitchVideoPlayer({
           height: "100%",
           parent: [window.location.hostname],
           autoplay: false,
+          controls: false,
         });
         player.addEventListener(Twitch.Player.READY, () => {
           ready = true;
           player?.setMuted(muted);
+          player?.setVolume(volume);
           listeners.forEach((listener) => listener());
         });
         player.addEventListener(Twitch.Player.PLAYING, () => {
@@ -404,7 +483,11 @@ function TwitchVideoPlayer({
             pending = null;
           }
         });
-        player.addEventListener(Twitch.Player.PLAY, () => track("VOD played"));
+        // Resuming fires PLAY but not always PLAYING, so either one means it plays.
+        player.addEventListener(Twitch.Player.PLAY, () => {
+          if (!playing) track("VOD played");
+          playing = true;
+        });
         player.addEventListener(Twitch.Player.PAUSE, () => {
           playing = false;
         });
@@ -434,6 +517,8 @@ interface FakeClock {
   playing: boolean;
   last: number;
   seek: number | null;
+  muted: boolean;
+  volume: number;
 }
 
 function FakePlayer({
@@ -445,7 +530,16 @@ function FakePlayer({
 }) {
   const onControllerRef = useRef(onController);
   onControllerRef.current = onController;
-  const clockRef = useRef<FakeClock>({ time: 0, playing: false, last: 0, seek: null });
+
+  const clockRef = useRef<FakeClock>({
+    time: 0,
+    playing: false,
+    last: 0,
+    seek: null,
+    muted: false,
+    volume: 1,
+  });
+
   const labelRef = useRef<HTMLParagraphElement>(null);
   const seekRef = useRef<HTMLParagraphElement>(null);
   const durationRef = useRef(duration);
@@ -471,6 +565,7 @@ function FakePlayer({
         return clock.time;
       },
       play() {
+        if (!clock.playing) track("VOD played");
         clock.playing = true;
         clock.last = performance.now();
       },
@@ -480,7 +575,18 @@ function FakePlayer({
       isPlaying() {
         return clock.playing;
       },
-      setMuted() {},
+      setMuted(next) {
+        clock.muted = next;
+      },
+      isMuted() {
+        return clock.muted;
+      },
+      setVolume(next) {
+        clock.volume = next;
+      },
+      getVolume() {
+        return clock.volume;
+      },
       onReady(listener) {
         if (ready) listener();
         else listeners.add(listener);
@@ -537,19 +643,6 @@ function FakePlayer({
       <p ref={seekRef} className="font-mono text-xs text-white/70">
         seekTo(—)
       </p>
-      <button
-        type="button"
-        className="mt-2 border border-white/30 px-2 py-1 text-xs"
-        onClick={() => {
-          const clock = clockRef.current;
-          clock.playing = !clock.playing;
-          clock.last = performance.now();
-
-          if (clock.playing) track("VOD played");
-        }}
-      >
-        Play / Pause
-      </button>
     </div>
   );
 }
