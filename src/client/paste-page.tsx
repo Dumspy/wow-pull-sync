@@ -56,7 +56,10 @@ export function PastePage() {
       return;
     }
 
-    const search: RaidSearch = { vods: [vod] };
+    // The offset goes into the link, so switching VODs or sharing the raid keeps it.
+    const search: RaidSearch = {
+      vods: [offsetSeconds === 0 ? vod : { ...vod, offset: offsetSeconds }],
+    };
 
     if (devFakePlayer()) search.player = "fake";
 

@@ -27,7 +27,7 @@ import { formatClock, formatOffset } from "./format";
 import { cn } from "./lib/utils";
 import { RaidPlayer, devFakePlayer, type PlayerController } from "./player";
 import { VodLoadError, vodQueryOptions } from "./raid-queries";
-import { activeVodIndex, type AddVodSearch, type SearchVod } from "./raid-search";
+import { raidSearchFrom, type AddVodSearch, type SearchVod } from "./raid-search";
 import { PLATFORM_LABELS } from "./raid-vods";
 import { usePlayhead } from "./timeline";
 
@@ -72,7 +72,9 @@ export function AddVodPage({
 
   const loaded = query.data;
 
-  const source = useMemo<VideoSource | null>(
+  // The video at offset 0. The check pulls are picked on it, so nudging the offset never swaps
+  // the anchor mid-alignment.
+  const video = useMemo<VideoSource | null>(
     () =>
       loaded
         ? {
@@ -80,14 +82,20 @@ export function AddVodPage({
             id: loaded.id,
             startedAt: loaded.startedAtMs,
             duration: loaded.durationSeconds,
-            offset,
+            offset: 0,
           }
         : null,
-    [loaded, offset],
+    [loaded],
   );
 
+  const source = useMemo(() => (video ? { ...video, offset } : null), [video, offset]);
   const state = linkState(link, parsed != null, duplicate, query.error, source);
-  const checks = source ? pullsToCheck(report.pulls, source) : [];
+
+  const checks = useMemo(
+    () => (video ? pullsToCheck(report.pulls, video) : []),
+    [report.pulls, video],
+  );
+
   const anchor = checks[0] ?? null;
   const shown = checks.find((pull) => pull.fightId === shownId) ?? anchor;
   const target = shown && source ? pullSecondsIn(shown, source) : null;
@@ -135,7 +143,7 @@ export function AddVodPage({
   const back = {
     to: "/raid/$reportCode" as const,
     params: { reportCode: report.reportCode },
-    search: { vods: search.vods, pov: search.replace ?? activeVodIndex(search) },
+    search: raidSearchFrom(search),
   };
 
   return (

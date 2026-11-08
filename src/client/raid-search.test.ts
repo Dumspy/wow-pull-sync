@@ -10,8 +10,10 @@ import {
   searchWithSideBySide,
   sidePanes,
   searchWithRecorder,
+  raidSearchFrom,
   searchWithVod,
   viewSearch,
+  type RaidSearch,
 } from "./raid-search";
 
 const YOUTUBE = { platform: "youtube", id: "BLJBhzLNt8w" } as const;
@@ -78,18 +80,51 @@ describe("raid search", () => {
   it("adds a VOD at the end, or in place of an expired one, and shows it", () => {
     const added = { platform: "twitch", id: "2916000000", by: 12 } as const;
 
-    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0 }, added, undefined)).toEqual({
+    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0 }, added)).toEqual({
       vods: [YOUTUBE, TWITCH, added],
       pov: 2,
     });
-    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0 }, added, 1)).toEqual({
+    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0, replace: 1 }, added)).toEqual({
       vods: [YOUTUBE, added],
       pov: 1,
     });
-    expect(searchWithVod({ vods: [YOUTUBE] }, added, 5)).toEqual({
+    expect(searchWithVod({ vods: [YOUTUBE], replace: 5 }, added)).toEqual({
       vods: [YOUTUBE, added],
       pov: 1,
     });
+  });
+
+  it("keeps the raid view through Add VOD, minus the old VOD's pull start", () => {
+    const added = { platform: "twitch", id: "2916000000" } as const;
+
+    const view: RaidSearch = {
+      vods: [YOUTUBE],
+      pull: 7,
+      t: 1200,
+      spells: [5],
+      player: "fake",
+    };
+
+    expect(searchWithVod(view, added)).toEqual({
+      vods: [YOUTUBE, added],
+      pov: 1,
+      pull: 7,
+      spells: [5],
+      player: "fake",
+    });
+    expect(raidSearchFrom({ ...view, replace: 0 })).toEqual(view);
+  });
+
+  it("adds a saved VOD to the panes side by side", () => {
+    const added = { platform: "twitch", id: "2916000000" } as const;
+
+    expect(searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0, side: [0, 1] }, added)).toMatchObject({
+      pov: 2,
+      side: [0, 1, 2],
+    });
+    expect(
+      searchWithVod({ vods: [YOUTUBE, TWITCH], pov: 0, side: [0, 1], replace: 1 }, added),
+    ).toMatchObject({ pov: 1, side: [0, 1] });
   });
 
   describe("side by side", () => {
@@ -122,6 +157,8 @@ describe("raid search", () => {
     it("ignores panes past the end and needs two to split", () => {
       expect(sidePanes({ vods: [YOUTUBE, TWITCH], side: [0, 5, 1, 1] })).toEqual([0, 1]);
       expect(sidePanes({ vods: [YOUTUBE, TWITCH], side: [1] })).toEqual([]);
+      // No pane has the sound, so there is no leader: one player instead.
+      expect(sidePanes({ vods: [YOUTUBE, TWITCH, TWITCH], pov: 0, side: [1, 2] })).toEqual([]);
       expect(raidSearchSchema.safeParse({ vods: four, side: [0, 1, 2, 3] }).success).toBe(false);
     });
 

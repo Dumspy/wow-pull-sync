@@ -145,31 +145,51 @@ export function searchWithSpells(current: RaidSearch, spells: number[]): RaidSea
   return spells.length === 0 ? rest : { ...rest, spells };
 }
 
-/** Search params for the Add VOD page. `replace` is the index of an expired VOD to swap out. */
+/**
+ * Search params for the Add VOD page: the raid's own search, kept for the way back, and
+ * `replace`, the index of an expired VOD to swap out.
+ */
 export const addVodSearchSchema = z.object({
   ...vodParams,
+  ...reviewParams,
   replace: z.number().int().min(0).optional(),
 });
 
 export type AddVodSearch = z.output<typeof addVodSearchSchema>;
 
-/**
- * The raid's VODs with `vod` added at the end, or in place of the one at `replace`, and that
- * VOD on screen.
- */
-export function searchWithVod(
-  current: RaidViewSearch,
-  vod: SearchVod,
-  replace: number | undefined,
-): RaidViewSearch {
-  if (replace != null && replace < current.vods.length) {
-    return { vods: current.vods.map((item, at) => (at === replace ? vod : item)), pov: replace };
-  }
+/** The raid page's search to go back to from Add VOD, without `replace`. */
+export function raidSearchFrom(search: AddVodSearch): RaidSearch {
+  const { replace: _replace, ...raid } = search;
 
-  return { vods: [...current.vods, vod], pov: current.vods.length };
+  return raid;
 }
 
-/** The VODs on screen side by side, in range and once each. Fewer than two means one player. */
+/**
+ * The raid's VODs with `vod` added at the end, or in place of the one at `replace`, and that
+ * VOD on screen. The rest of the view (pull, lanes, side by side) is kept; side by side, the
+ * new VOD joins the panes.
+ */
+export function searchWithVod(current: AddVodSearch, vod: SearchVod): RaidSearch {
+  // `t` is the pull start in the VOD on screen, which is about to change.
+  const { t: _previous, ...raid } = raidSearchFrom(current);
+  const { replace } = current;
+  const replacing = replace != null && replace < raid.vods.length;
+
+  const next: RaidSearch = replacing
+    ? { ...raid, vods: raid.vods.map((item, at) => (at === replace ? vod : item)), pov: replace }
+    : { ...raid, vods: [...raid.vods, vod], pov: raid.vods.length };
+
+  const panes = sidePanes(raid);
+
+  if (panes.length === 0 || panes.includes(next.pov ?? 0)) return next;
+
+  return searchWithPaneToggled({ ...next, pov: activeVodIndex(raid) }, next.pov ?? 0);
+}
+
+/**
+ * The VODs on screen side by side, in range and once each. Fewer than two, or none of them the
+ * VOD with sound (`pov`), means one player.
+ */
 export function sidePanes(search: RaidSearch): number[] {
   const panes: number[] = [];
 
@@ -177,7 +197,7 @@ export function sidePanes(search: RaidSearch): number[] {
     if (index < search.vods.length && !panes.includes(index)) panes.push(index);
   }
 
-  return panes.length >= 2 ? panes : [];
+  return panes.length >= 2 && panes.includes(activeVodIndex(search)) ? panes : [];
 }
 
 /** Side by side on: the VOD on screen plus the next one. Off: back to the one with sound. */

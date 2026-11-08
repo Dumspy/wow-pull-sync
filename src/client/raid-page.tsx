@@ -69,6 +69,15 @@ export function RaidPage({
     shown.ref.offset != null ? String(shown.ref.offset) : initialOffsetText,
   );
 
+  // The field edits the VOD with sound. When that changes (a chip, the speaker, back/forward),
+  // it shows the new VOD's saved offset.
+  const [offsetFor, setOffsetFor] = useState(activeIndex);
+
+  if (offsetFor !== activeIndex) {
+    setOffsetFor(activeIndex);
+    setOffsetText(String(shown.ref.offset ?? 0));
+  }
+
   /** Where to put the next VOD's player after a switch, so the moment of the pull stays put. */
   const resumeAt = useRef<number | null>(null);
 
@@ -118,7 +127,7 @@ export function RaidPage({
   }
 
   /** Followers: the other panes side by side, each with its controller and source. */
-  const followers = shownIndexes.flatMap((index) => {
+  const followers = shownIndexes.flatMap((index): Follower[] => {
     const controller = controllers.get(index);
     const own = paneSource(index);
 
@@ -129,14 +138,7 @@ export function RaidPage({
   function seekAll(seconds: number) {
     player?.seekTo(seconds);
 
-    if (!source) return;
-
-    for (const follower of followers) {
-      const target = sameMoment(seconds, source, follower.source);
-
-      if (target == null) follower.controller.pause();
-      else follower.controller.seekTo(target);
-    }
+    if (source) seekFollowers(seconds, source, followers);
   }
 
   const sync = useRef({ player, source, followers });
@@ -161,12 +163,15 @@ export function RaidPage({
           continue;
         }
 
-        if (Math.abs(follower.controller.getCurrentTime() - target) > 1.5) {
-          follower.controller.seekTo(target);
-        }
+        // seekTo also starts playback, so a seeked follower of a paused leader pauses again.
+        const drifted = Math.abs(follower.controller.getCurrentTime() - target) > 1.5;
+
+        if (drifted) follower.controller.seekTo(target);
 
         if (playing && !follower.controller.isPlaying()) follower.controller.play();
-        else if (!playing && follower.controller.isPlaying()) follower.controller.pause();
+        else if (!playing && (drifted || follower.controller.isPlaying())) {
+          follower.controller.pause();
+        }
       }
     }, 1000);
 
@@ -206,16 +211,10 @@ export function RaidPage({
 
     return player.onReady(() => {
       resumeAt.current = null;
-      sync.current.player?.seekTo(seconds);
-      const { source: leading, followers: others } = sync.current;
+      const { player: leader, source: leading, followers: others } = sync.current;
+      leader?.seekTo(seconds);
 
-      if (!leading) return;
-
-      for (const follower of others) {
-        const target = sameMoment(seconds, leading, follower.source);
-
-        if (target != null) follower.controller.seekTo(target);
-      }
+      if (leading) seekFollowers(seconds, leading, others);
     });
   }, [player, source, report.pulls, search.pull]);
 
@@ -250,12 +249,17 @@ export function RaidPage({
   }
 
   /** Show another VOD at the same wall-clock moment, or at the pull start if it has no footage then. */
+  /** A new leader picks up at the moment on screen now, not back at the pull start. */
+  function keepMoment(index: number) {
+    const next = vods[index]?.source;
+    resumeAt.current = source && next ? sameMoment(playhead, source, next) : null;
+  }
+
   function switchVod(next: RaidVod) {
     if (next.index === activeIndex) return;
-    resumeAt.current = source && next.source ? sameMoment(playhead, source, next.source) : null;
+    keepMoment(next.index);
 
     track("VOD switched", { platform: next.ref.platform });
-    setOffsetText(String(next.ref.offset ?? 0));
     // `t` is the pull start in the VOD on screen, so it follows the switch.
     const { t: _previous, ...rest } = search;
     const t = activePull ? seekSeconds(activePull, next.source) : null;
@@ -302,14 +306,15 @@ export function RaidPage({
     const next = searchWithPaneToggled(search, vod.index);
     const pov = activeVodIndex(next);
 
-    if (pov !== activeIndex) setOffsetText(String(search.vods[pov]?.offset ?? 0));
+    if (pov !== activeIndex) keepMoment(pov);
+
     onReplaceSearch(next);
   }
 
   /** Side by side, give a pane the sound. It leads from then on. */
   function listenTo(index: number) {
     if (index === activeIndex) return;
-    setOffsetText(String(search.vods[index]?.offset ?? 0));
+    keepMoment(index);
     onReplaceSearch({ ...search, pov: index });
   }
 
@@ -548,6 +553,21 @@ export function RaidPage({
       />
     </div>
   );
+}
+
+interface Follower {
+  controller: PlayerController;
+  source: VideoSource;
+}
+
+/** Put each follower on the leader's moment, or pause it where it has no footage then. */
+function seekFollowers(seconds: number, leading: VideoSource, others: Follower[]) {
+  for (const follower of others) {
+    const target = sameMoment(seconds, leading, follower.source);
+
+    if (target == null) follower.controller.pause();
+    else follower.controller.seekTo(target);
+  }
 }
 
 function offsetNumber(offsetText: string): number {

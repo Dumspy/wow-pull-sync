@@ -24,7 +24,6 @@ import {
   raidViewSearchSchema,
   searchForPull,
   searchWithVod,
-  viewSearch,
   type RaidSearch,
   type SearchVod,
 } from "./raid-search";
@@ -125,7 +124,7 @@ function RaidRoute() {
     (replace: number | null) => {
       void navigate({
         to: "/raid/$reportCode/add-vod",
-        search: (prev) => (replace == null ? viewSearch(prev) : { ...viewSearch(prev), replace }),
+        search: (prev) => (replace == null ? prev : { ...prev, replace }),
       });
     },
     [navigate],
@@ -236,7 +235,7 @@ function AddVodRoute() {
       void navigate({
         to: "/raid/$reportCode",
         params: { reportCode },
-        search: searchWithVod(search, vod, search.replace),
+        search: searchWithVod(search, vod),
       });
     },
     [navigate, reportCode, search],
