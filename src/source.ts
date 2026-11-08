@@ -1,8 +1,9 @@
 import { matchPullToVod } from "./match";
+import type { VodPlatform } from "./types";
 
 /** One recording of the night. Page state holds a list of these; only one is active for now. */
 export interface VideoSource {
-  kind: "youtube";
+  kind: VodPlatform;
   id: string;
   /** Wall-clock epoch milliseconds of video second 0. */
   startedAt: number;
@@ -36,4 +37,25 @@ export function pullInSource(pull: { startedAt: number }, source: VideoSource): 
     vodDurationSeconds: source.duration,
     offsetSeconds: source.offset,
   }).inVod;
+}
+
+/** Video second for a pull, or null when there is no source or the source does not cover it. */
+export function pullSecondsIn(
+  pull: { startedAt: number },
+  source: VideoSource | null,
+): number | null {
+  if (!source || !pullInSource(pull, source)) return null;
+
+  return pullToVideoSeconds(pull, source);
+}
+
+/**
+ * Second in `to` showing the same wall-clock moment as `seconds` in `from`, each with its own
+ * offset. Null when `to` has no footage of that moment.
+ */
+export function sameMoment(seconds: number, from: VideoSource, to: VideoSource): number | null {
+  const wallClock = from.startedAt + (seconds - from.offset) * 1000;
+  const target = (wallClock - to.startedAt) / 1000 + to.offset;
+
+  return target >= 0 && target <= to.duration ? target : null;
 }

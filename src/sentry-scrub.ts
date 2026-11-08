@@ -34,9 +34,11 @@ export function scrubSentryText(value: string): string {
     (match, prefix: string, raw: string) => (isReportCode(raw) ? `${prefix}:report` : match),
   );
 
+  // `id=` is a YouTube video id, or a Twitch video number on Helix requests.
   const withoutVideoIds = withoutReportValues.replace(
     /([?&#]id=)([^&#\s]*)/g,
-    (match, prefix: string, raw: string) => (isVideoId(raw) ? `${prefix}:video` : match),
+    (match, prefix: string, raw: string) =>
+      isVideoId(raw) || /^\d{6,20}$/.test(raw) ? `${prefix}:video` : match,
   );
 
   const withoutParams = withoutVideoIds.replace(

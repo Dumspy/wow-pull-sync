@@ -14,8 +14,6 @@ function pull(fightId: number, encounterId: number, kill: boolean, pct: number |
     bossPercentage: pct,
     startedAt: 0,
     endedAt: 0,
-    vodSeconds: 0,
-    inVod: true,
     difficulty: null,
     fightPercentage: null,
     lastPhase: null,

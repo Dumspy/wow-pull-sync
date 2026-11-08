@@ -11,8 +11,9 @@ app.use(sentry(app, workerSentryOptions));
 app.route("/api", api);
 
 app.all("*", (c) => {
-  // A non-POST /api/pulls is a 404. Don't replace that response with the page.
-  if (c.req.path === "/api/pulls") return c.notFound();
+  // An API call the router didn't answer (wrong method, old or unknown path) is a 404.
+  // Don't replace that response with the page.
+  if (c.req.path === "/api" || c.req.path.startsWith("/api/")) return c.notFound();
 
   return c.env.ASSETS.fetch(c.req.raw);
 });

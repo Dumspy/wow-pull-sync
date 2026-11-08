@@ -7,6 +7,7 @@ const REPORT = "TPYJD2c4VkLZfBp9";
 const VIDEO = "BLJBhzLNt8w";
 const WCL_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.wcl-token";
 const API_KEY = "AIzaSyDUMMYKEY1234567890";
+const TWITCH = "2914150345";
 
 describe("sentry scrub", () => {
   it("removes report codes, video ids, pull ids, the t param, and tokens from text", () => {
@@ -15,6 +16,11 @@ describe("sentry scrub", () => {
       `https://www.warcraftlogs.com/reports/${REPORT}#fight=99`,
       `https://youtube.com/live/${VIDEO}`,
       `https://youtu.be/${VIDEO}`,
+      `https://www.twitch.tv/videos/${TWITCH}?t=0h2m56s`,
+      `https://player.twitch.tv/?video=v${TWITCH}&parent=pull-sync.example`,
+      `https://api.twitch.tv/helix/videos?id=${TWITCH}`,
+      `https://api.twitch.tv/helix/streams?user_id=67537542`,
+      `https://pull-sync.example/raid/${REPORT}?vods=${encodeURIComponent(JSON.stringify([{ platform: "twitch", id: TWITCH }]))}&pov=0`,
       `https://www.googleapis.com/youtube/v3/videos?id=${VIDEO}&key=${API_KEY}&part=snippet`,
       `https://www.warcraftlogs.com/oauth/token`,
       "Authorization: Bearer super-secret-token",
@@ -25,6 +31,10 @@ describe("sentry scrub", () => {
 
     expect(scrubbed).not.toContain(REPORT);
     expect(scrubbed).not.toContain(VIDEO);
+    expect(scrubbed).not.toContain(TWITCH);
+    expect(scrubbed).not.toContain("67537542");
+    expect(scrubbed).toContain("/videos/:video");
+    expect(scrubbed).toContain("vods=:vods");
     expect(scrubbed).not.toContain(WCL_TOKEN);
     expect(scrubbed).not.toContain(API_KEY);
     expect(scrubbed).not.toContain("super-secret-token");

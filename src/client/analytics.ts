@@ -7,6 +7,8 @@ export type AnalyticsEvent =
   | "raid loaded"
   | "pull clicked"
   | "VOD played"
+  | "VOD switched"
+  | "side by side toggled"
   | "overview opened"
   | "boss progress opened";
 
@@ -23,11 +25,25 @@ export interface BossProgressOpenedProperties {
   encounter_id: number;
 }
 
+export interface SideBySideToggledProperties {
+  on: boolean;
+}
+
+/** The platform of the VOD switched to. No video ids. */
+export interface VodSwitchedProperties {
+  platform: "youtube" | "twitch";
+}
+
 type Client = { capture: PostHogCapture };
 
 type PostHogCapture = (
   event: string,
-  properties?: RaidLoadedProperties | PullClickedProperties | BossProgressOpenedProperties,
+  properties?:
+    | RaidLoadedProperties
+    | PullClickedProperties
+    | BossProgressOpenedProperties
+    | VodSwitchedProperties
+    | SideBySideToggledProperties,
 ) => void;
 
 /** A previous location is present once the router has resolved at least one navigation. */
@@ -129,13 +145,20 @@ export function track(event: "raid loaded", properties: RaidLoadedProperties): v
 export function track(event: "pull clicked", properties: PullClickedProperties): void;
 export function track(event: "VOD played"): void;
 export function track(event: "overview opened"): void;
+export function track(event: "VOD switched", properties: VodSwitchedProperties): void;
+export function track(event: "side by side toggled", properties: SideBySideToggledProperties): void;
 export function track(
   event: "boss progress opened",
   properties: BossProgressOpenedProperties,
 ): void;
 export function track(
   event: AnalyticsEvent,
-  properties?: RaidLoadedProperties | PullClickedProperties | BossProgressOpenedProperties,
+  properties?:
+    | RaidLoadedProperties
+    | PullClickedProperties
+    | BossProgressOpenedProperties
+    | VodSwitchedProperties
+    | SideBySideToggledProperties,
 ): void {
   enqueue(() => {
     client?.capture(event, properties);

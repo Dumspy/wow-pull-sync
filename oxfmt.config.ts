@@ -13,6 +13,7 @@ export default defineConfig({
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
+    "docs/design/**",
     "tools/oxlint/anti-slop/**",
   ],
 });

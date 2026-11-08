@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
+import { pullSecondsIn, type VideoSource } from "../source";
 import type { Pull } from "../types";
 import { PullGroup } from "./components/pull-group";
 import { PullRow } from "./components/pull-row";
@@ -14,7 +14,7 @@ export function PullList({
   onSelect,
 }: {
   pulls: Pull[];
-  source: VideoSource;
+  source: VideoSource | null;
   activeId: number | null;
   onSelect: (pull: Pull) => void;
 }) {
@@ -37,7 +37,7 @@ export function PullList({
           summary={groupSummary(group.pulls)}
         >
           {group.pulls.map((pull) => {
-            const inVod = pullInSource(pull, source);
+            const seconds = pullSecondsIn(pull, source);
 
             return (
               <PullRow
@@ -47,9 +47,9 @@ export function PullList({
                 kill={pull.kill}
                 hp={hpLeft(pull)}
                 duration={formatClock(pull.durationMs / 1000)}
-                start={inVod ? formatClock(pullToVideoSeconds(pull, source)) : "no VOD"}
+                start={seconds == null ? "no VOD" : formatClock(seconds)}
                 selected={pull.fightId === activeId}
-                className={inVod ? undefined : "opacity-45"}
+                className={seconds == null ? "opacity-45" : undefined}
                 onClick={() => onSelect(pull)}
               />
             );

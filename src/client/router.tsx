@@ -9,7 +9,6 @@ import { routeTree } from "./routes";
 declare module "@tanstack/history" {
   interface HistoryState {
     returnToRaid?: boolean;
-    offsetText?: string;
   }
 }
 

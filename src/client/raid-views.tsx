@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { pullInSource, pullToVideoSeconds, type VideoSource } from "../source";
-import type { Pull, PullSyncResponse } from "../types";
+import { pullSecondsIn, type VideoSource } from "../source";
+import type { Pull, ReportResponse } from "../types";
 import { track } from "./analytics";
 import { AppBrand, AppHeader } from "./components/app-header";
 import { BossSection } from "./components/boss-section";
@@ -12,32 +12,30 @@ import { StatStrip, StatTile } from "./components/stat-strip";
 import { buttonVariants } from "./components/ui/button";
 import { formatClock } from "./format";
 import { formatSpan, hpLeft, summarizeBosses, type BossSummary } from "./pull-view";
-import { searchForPull, type RaidViewSearch } from "./raid-search";
+import { activeVodIndex, searchForPull, type RaidViewSearch } from "./raid-search";
+import { useRaidVods } from "./raid-vods";
 
-function videoSource(data: PullSyncResponse, offset: number): VideoSource {
-  return {
-    kind: "youtube",
-    id: data.videoId,
-    startedAt: data.vodStartedAtMs,
-    duration: data.vodDurationSeconds,
-    offset,
-  };
+/** The VOD on screen in the inspector. Null while it loads, or when it failed. */
+function useActiveSource(report: ReportResponse, search: RaidViewSearch): VideoSource | null {
+  const vods = useRaidVods(search.vods, report.players);
+
+  return vods[activeVodIndex(search)]?.source ?? null;
 }
 
 /** Review-page search for a pull, so a link lands on it with the video seeked. */
-function reviewSearch(search: RaidViewSearch, pull: Pull, source: VideoSource) {
-  const seconds = pullInSource(pull, source) ? Math.round(pullToVideoSeconds(pull, source)) : null;
+function reviewSearch(search: RaidViewSearch, pull: Pull, source: VideoSource | null) {
+  const seconds = pullSecondsIn(pull, source);
 
-  return searchForPull(search, pull.fightId, seconds);
+  return searchForPull(search, pull.fightId, seconds == null ? null : Math.round(seconds));
 }
 
 function ViewHeader({
-  data,
+  report,
   search,
   title,
   children,
 }: {
-  data: PullSyncResponse;
+  report: ReportResponse;
   search: RaidViewSearch;
   title: string;
   children?: ReactNode;
@@ -47,13 +45,13 @@ function ViewHeader({
       <AppBrand />
       <div className="flex min-w-0 flex-col">
         <h1 className="truncate text-[13px] font-semibold">{title}</h1>
-        <span className="truncate text-xs text-muted-foreground">{data.reportTitle}</span>
+        <span className="truncate text-xs text-muted-foreground">{report.reportTitle}</span>
       </div>
       <span className="flex-1" />
       {children}
       <Link
         to="/raid/$reportCode"
-        params={{ reportCode: data.reportCode }}
+        params={{ reportCode: report.reportCode }}
         search={search}
         className={buttonVariants({ variant: "outline", size: "sm" })}
       >
@@ -77,15 +75,15 @@ const COLLAPSED_PULLS = 6;
 
 function PullRows({
   pulls,
-  data,
+  report,
   search,
   source,
   collapsible = false,
 }: {
   pulls: Pull[];
-  data: PullSyncResponse;
+  report: ReportResponse;
   search: RaidViewSearch;
-  source: VideoSource;
+  source: VideoSource | null;
   /** Cut a long list to the first few rows with a button to show the rest. */
   collapsible?: boolean;
 }) {
@@ -96,7 +94,7 @@ function PullRows({
   return (
     <>
       <PullRowHeader />
-      <PullRowList pulls={visible} data={data} search={search} source={source} />
+      <PullRowList pulls={visible} report={report} search={search} source={source} />
       {collapsible && pulls.length > COLLAPSED_PULLS ? (
         <button
           type="button"
@@ -112,14 +110,14 @@ function PullRows({
 
 function PullRowList({
   pulls,
-  data,
+  report,
   search,
   source,
 }: {
   pulls: Pull[];
-  data: PullSyncResponse;
+  report: ReportResponse;
   search: RaidViewSearch;
-  source: VideoSource;
+  source: VideoSource | null;
 }) {
   return pulls.map((pull) => (
     <PullRow
@@ -128,11 +126,11 @@ function PullRowList({
       kill={pull.kill}
       hp={hpLeft(pull)}
       duration={formatClock(pull.durationMs / 1000)}
-      className={pullInSource(pull, source) ? undefined : "opacity-45"}
+      className={pullSecondsIn(pull, source) == null ? "opacity-45" : undefined}
       render={
         <Link
           to="/raid/$reportCode"
-          params={{ reportCode: data.reportCode }}
+          params={{ reportCode: report.reportCode }}
           search={reviewSearch(search, pull, source)}
           onClick={() => track("pull clicked", { encounter_id: pull.encounterId, kill: pull.kill })}
         />
@@ -141,11 +139,17 @@ function PullRowList({
   ));
 }
 
-export function OverviewPage({ data, search }: { data: PullSyncResponse; search: RaidViewSearch }) {
-  const source = videoSource(data, search.offset ?? 0);
-  const bosses = summarizeBosses(data.pulls);
-  const kills = data.pulls.filter((pull) => pull.kill).length;
-  const totalMs = data.pulls.reduce((sum, pull) => sum + pull.durationMs, 0);
+export function OverviewPage({
+  report,
+  search,
+}: {
+  report: ReportResponse;
+  search: RaidViewSearch;
+}) {
+  const source = useActiveSource(report, search);
+  const bosses = summarizeBosses(report.pulls);
+  const kills = report.pulls.filter((pull) => pull.kill).length;
+  const totalMs = report.pulls.reduce((sum, pull) => sum + pull.durationMs, 0);
 
   useEffect(() => {
     track("overview opened");
@@ -153,13 +157,13 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <ViewHeader data={data} search={search} title="Raid overview" />
+      <ViewHeader report={report} search={search} title="Raid overview" />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4">
         <StatStrip>
           <StatTile label="Bosses" value={bosses.length} />
-          <StatTile label="Pulls" value={data.pulls.length} />
+          <StatTile label="Pulls" value={report.pulls.length} />
           <StatTile label="Kills" value={kills} valueClassName="text-success" />
-          <StatTile label="Wipes" value={data.pulls.length - kills} />
+          <StatTile label="Wipes" value={report.pulls.length - kills} />
           <StatTile label="Time in pulls" value={formatSpan(totalMs)} />
         </StatStrip>
         {bosses.length === 0 ? (
@@ -174,7 +178,7 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
             action={
               <Link
                 to="/raid/$reportCode/boss/$encounterId"
-                params={{ reportCode: data.reportCode, encounterId: boss.encounterId }}
+                params={{ reportCode: report.reportCode, encounterId: boss.encounterId }}
                 search={search}
                 className={buttonVariants({ variant: "outline", size: "sm" })}
               >
@@ -182,7 +186,13 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
               </Link>
             }
           >
-            <PullRows pulls={boss.pulls} data={data} search={search} source={source} collapsible />
+            <PullRows
+              pulls={boss.pulls}
+              report={report}
+              search={search}
+              source={source}
+              collapsible
+            />
           </BossSection>
         ))}
       </main>
@@ -191,16 +201,16 @@ export function OverviewPage({ data, search }: { data: PullSyncResponse; search:
 }
 
 export function BossProgressPage({
-  data,
+  report,
   search,
   encounterId,
 }: {
-  data: PullSyncResponse;
+  report: ReportResponse;
   search: RaidViewSearch;
   encounterId: number;
 }) {
-  const source = videoSource(data, search.offset ?? 0);
-  const bosses = summarizeBosses(data.pulls);
+  const source = useActiveSource(report, search);
+  const bosses = summarizeBosses(report.pulls);
   const boss = bosses.find((item) => item.encounterId === encounterId);
 
   useEffect(() => {
@@ -210,7 +220,7 @@ export function BossProgressPage({
   if (!boss) {
     return (
       <div className="flex min-h-svh flex-col bg-background">
-        <ViewHeader data={data} search={search} title="Boss progress" />
+        <ViewHeader report={report} search={search} title="Boss progress" />
         <main className="mx-auto w-full max-w-4xl p-4 text-muted-foreground">
           That boss wasn't pulled in this report.
         </main>
@@ -226,14 +236,14 @@ export function BossProgressPage({
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <ViewHeader data={data} search={search} title={`${boss.name} progress`}>
+      <ViewHeader report={report} search={search} title={`${boss.name} progress`}>
         {bosses.length > 1 ? (
           <nav className="flex flex-wrap gap-1" aria-label="Bosses">
             {bosses.map((item) => (
               <Link
                 key={item.encounterId}
                 to="/raid/$reportCode/boss/$encounterId"
-                params={{ reportCode: data.reportCode, encounterId: item.encounterId }}
+                params={{ reportCode: report.reportCode, encounterId: item.encounterId }}
                 search={search}
                 className={buttonVariants({
                   variant: item.encounterId === boss.encounterId ? "secondary" : "ghost",
@@ -247,7 +257,7 @@ export function BossProgressPage({
         ) : null}
         <Link
           to="/raid/$reportCode/overview"
-          params={{ reportCode: data.reportCode }}
+          params={{ reportCode: report.reportCode }}
           search={search}
           className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
@@ -271,7 +281,7 @@ export function BossProgressPage({
           />
         </div>
         <BossSection name={boss.name} stats={bossStats(boss)} bodyClassName="max-h-none">
-          <PullRows pulls={boss.pulls} data={data} search={search} source={source} />
+          <PullRows pulls={boss.pulls} report={report} search={search} source={source} />
         </BossSection>
       </main>
     </div>
