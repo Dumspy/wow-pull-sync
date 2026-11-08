@@ -1,10 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import {
-  createRootRouteWithContext,
-  createRoute,
-  Outlet,
-  useRouterState,
-} from "@tanstack/react-router";
+import { createRootRouteWithContext, createRoute, Outlet } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -100,10 +95,6 @@ function RaidRoute() {
   const { reportCode } = raidRoute.useParams();
   const navigate = raidRoute.useNavigate();
 
-  const initialOffsetText = useRouterState({
-    select: (state) => state.location.state.offsetText ?? "0",
-  });
-
   const { data: report } = useSuspenseQuery(reportQueryOptions(reportCode));
 
   const onSelectPull = useCallback(
@@ -130,18 +121,14 @@ function RaidRoute() {
     [navigate],
   );
 
-  const onAnotherRaid = useCallback(
-    (offsetText: string) => {
-      void navigate({ to: "/", state: { returnToRaid: true, offsetText } });
-    },
-    [navigate],
-  );
+  const onAnotherRaid = useCallback(() => {
+    void navigate({ to: "/", state: { returnToRaid: true } });
+  }, [navigate]);
 
   return (
     <RaidPage
       report={report}
       search={search}
-      initialOffsetText={initialOffsetText}
       onSelectPull={onSelectPull}
       onReplaceSearch={onReplaceSearch}
       onAddVod={onAddVod}

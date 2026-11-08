@@ -46,6 +46,7 @@ Both screens are in the design file [`docs/design/pull-sync-designs.html`](../de
   - a "recorded by" character, required when adding the VOD
   - its own offset nudge
 - Add VOD flow: paste a link, choose the recorded-by character, check the alignment and nudge the offset.
+- The first page takes only the Warcraft Logs link. It opens Add VOD as "Add your first VOD", with the log already loaded, so the first VOD gets a recorder like every other. Skipping it shows the raid with no VOD: the pulls and timeline work, and the video area asks for a VOD.
 - Pulls stay on wall-clock time. Each video is its own source on that shared clock, so switching VODs keeps you at the same moment of the pull.
 - The video player sits behind a small interface so YouTube and Twitch behave the same in the inspector.
 - Until phase 3, the raid's VODs (platform, video, offset, recorded-by) live in the page URL, even if that makes the link long.
@@ -86,3 +87,4 @@ Both screens are in the design file [`docs/design/pull-sync-designs.html`](../de
 - VOD setup is kept in the URL until saved raids exist (phase 3). A long URL is fine for now.
 - Any limit on VODs per raid for the free version is left to phase 5.
 - Pane captions (who recorded it, the pull, the Audio / Muted button) sit in a strip above the video, not over it as in the design. Twitch's embed won't start without a click while anything covers it.
+- The log comes first and VODs are added after, so the recorded-by list is always there when a VOD is added. The first VOD is not a special case with a placeholder name.

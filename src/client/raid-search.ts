@@ -20,9 +20,12 @@ export const MAX_PANES = 3;
 
 const youtubeIdSchema = z.string().regex(/^[A-Za-z0-9_-]{11}$/);
 
-/** The raid's VODs, and `pov`, the index of the one on screen. */
+/**
+ * The raid's VODs, and `pov`, the index of the one on screen. A raid starts with none: the log
+ * loads first, then the first VOD is added on the Add VOD page.
+ */
 const vodParams = {
-  vods: z.array(searchVodSchema).min(1),
+  vods: z.array(searchVodSchema).default([]),
   pov: z.number().int().min(0).optional(),
 };
 
@@ -55,14 +58,14 @@ export type RaidSearch = z.output<typeof currentRaidSearch>;
 
 /** Search params for `/raid/$reportCode`. `player` is the dev-only stand-in. */
 export const raidSearchSchema = z.union([
-  currentRaidSearch,
+  // First: a legacy link would also pass the current schema, as a raid with no VODs.
   z
     .object({ ...legacyVodParams, ...reviewParams })
     .transform((legacy): RaidSearch => fromLegacy(legacy)),
+  currentRaidSearch,
 ]);
 
-export const raidLinkError =
-  "That raid link is missing a VOD, or one of its parameters is not valid.";
+export const raidLinkError = "One of that raid link's parameters is not valid.";
 
 export class RaidLinkError extends Error {
   constructor() {
@@ -76,9 +79,9 @@ export function activeVodIndex(search: { vods: SearchVod[]; pov?: number }): num
   return search.pov != null && search.pov < search.vods.length ? search.pov : 0;
 }
 
-export function activeVod(search: { vods: SearchVod[]; pov?: number }): SearchVod {
-  // SAFETY: the schema keeps at least one VOD and activeVodIndex stays in range.
-  return search.vods[activeVodIndex(search)] as SearchVod;
+/** The VOD on screen, or null while the raid has none yet. */
+export function activeVod(search: { vods: SearchVod[]; pov?: number }): SearchVod | null {
+  return search.vods[activeVodIndex(search)] ?? null;
 }
 
 /** One history entry for a selected pull. `t` is omitted when the pull is outside the VOD. */
@@ -129,8 +132,8 @@ export type RaidViewSearch = z.output<typeof currentViewSearch>;
 
 /** Search params for the overview and boss progress pages. */
 export const raidViewSearchSchema = z.union([
-  currentViewSearch,
   z.object(legacyVodParams).transform((legacy): RaidViewSearch => fromLegacy(legacy)),
+  currentViewSearch,
 ]);
 
 /** The VOD part of a raid search, for links to the overview and boss pages. */

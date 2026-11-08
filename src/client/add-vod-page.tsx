@@ -51,7 +51,13 @@ export function AddVodPage({
   onSave: (vod: SearchVod) => void;
 }) {
   const replacing = search.replace != null ? search.vods[search.replace] : undefined;
-  const [link, setLink] = useState("");
+  // Straight from the paste page: the raid has its log but no VOD yet.
+  const first = search.vods.length === 0;
+
+  const [link, setLink] = useState(
+    first ? (import.meta.env.VITE_PREFILL_VOD_URL?.trim() ?? "") : "",
+  );
+
   const [by, setBy] = useState<string | null>(replacing?.by != null ? String(replacing.by) : null);
   const [offset, setOffset] = useState(0);
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
@@ -158,7 +164,9 @@ export function AddVodPage({
           <span aria-hidden="true" className="text-muted-foreground">
             /
           </span>
-          <span className="font-medium">{replacing ? "Replace VOD" : "Add VOD"}</span>
+          <span className="font-medium">
+            {replacing ? "Replace VOD" : first ? "Add your first VOD" : "Add VOD"}
+          </span>
         </nav>
       </AppHeader>
       <div className="flex flex-1 flex-wrap items-stretch">
@@ -210,6 +218,15 @@ export function AddVodPage({
           </div>
         </main>
         <aside className="flex max-w-105 min-w-75 flex-[1_1_380px] flex-col gap-6 bg-card px-6 pt-6 pb-7">
+          {first ? (
+            <div className="flex flex-col gap-1">
+              <h1 className="text-base font-semibold">Add your first VOD</h1>
+              <p className="text-xs text-muted-foreground">
+                The log is loaded: {report.pulls.length} pulls from {report.players.length} players.
+                Paste a YouTube or Twitch recording of the night to watch the pulls.
+              </p>
+            </div>
+          ) : null}
           <NumberedStep step={1} title="Recording">
             <p className="text-xs text-muted-foreground">
               Pick which character from this log recorded the video. Their portrait shows on the
@@ -327,7 +344,7 @@ export function AddVodPage({
               Save VOD
             </Button>
             <Link {...back} className={buttonVariants({ variant: "outline" })}>
-              Cancel
+              {first ? "Skip for now" : "Cancel"}
             </Link>
           </div>
         </aside>

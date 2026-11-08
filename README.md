@@ -1,6 +1,6 @@
 # Pull sync
 
-Paste a Warcraft Logs report and the YouTube or Twitch VOD from that night. The page embeds the VOD and lists every boss pull. Click a pull and the player seeks to when it started.
+Paste a Warcraft Logs report, then add the YouTube or Twitch VODs from that night. Each VOD names the player who recorded it, picked from the log's players. The page embeds the VODs and lists every boss pull. Click a pull and the player seeks to when it started.
 
 A pull's place in the video is wall-clock time. Warcraft Logs gives the report start and each fight's offset from that start. YouTube's `liveStreamingDetails.actualStartTime` is second 0 of a finished live stream. For a Twitch past broadcast, second 0 is the video's `created_at`. Twitch has no exact start time for past streams, and `created_at` can be a few seconds late, so the offset absorbs the difference. The seek time is those two instants compared, plus an optional offset in seconds (stream delay, or a VOD that was trimmed). Trash fights are left out. A pull that falls outside the VOD is marked "not in VOD".
 
@@ -43,7 +43,7 @@ Scripts, as defined in `package.json`:
 
 `npm run dev` runs the Worker and the page together on the Workers runtime. `npm run lint` checks the TypeScript. `npm run fmt` formats it. `npm test` is the timestamp unit tests.
 
-To prefill the paste form, set `VITE_PREFILL_REPORT_URL` and `VITE_PREFILL_VOD_URL` as build variables. They are inlined at build time. Leave them unset on production builds. Either one can be set alone.
+To prefill the forms, set `VITE_PREFILL_REPORT_URL` (the paste page) and `VITE_PREFILL_VOD_URL` (the first Add VOD link) as build variables. They are inlined at build time. Leave them unset on production builds. Either one can be set alone.
 
 With `USE_FIXTURES=true`, these two links load the recorded night. Every boss pull in that pair sits inside the VOD. The first is Ula'tek pull 1 at 24:32.
 

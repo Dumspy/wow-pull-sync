@@ -37,9 +37,10 @@ describe("raid search", () => {
     expect(raidViewSearchSchema.parse({ vod: YOUTUBE.id })).toEqual({ vods: [YOUTUBE] });
   });
 
-  it("rejects a link with no VOD, or an id that does not fit its platform", () => {
-    expect(raidSearchSchema.safeParse({}).success).toBe(false);
-    expect(raidSearchSchema.safeParse({ vods: [] }).success).toBe(false);
+  it("reads a raid with no VOD yet, and rejects an id that does not fit its platform", () => {
+    expect(raidSearchSchema.parse({})).toEqual({ vods: [] });
+    expect(raidSearchSchema.parse({ vods: [], pull: 3 })).toEqual({ vods: [], pull: 3 });
+    expect(activeVod({ vods: [] })).toBeNull();
     expect(
       raidSearchSchema.safeParse({ vods: [{ platform: "twitch", id: YOUTUBE.id }] }).success,
     ).toBe(false);

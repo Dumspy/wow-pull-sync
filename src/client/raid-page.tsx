@@ -46,7 +46,6 @@ import { Timeline, usePlayhead } from "./timeline";
 export function RaidPage({
   report,
   search,
-  initialOffsetText,
   onSelectPull,
   onReplaceSearch,
   onAddVod,
@@ -54,21 +53,17 @@ export function RaidPage({
 }: {
   report: ReportResponse;
   search: RaidSearch;
-  initialOffsetText: string;
   onSelectPull: (fightId: number, seconds: number | null) => void;
   onReplaceSearch: (search: RaidSearch) => void;
   /** Opens the Add VOD page; `replace` is the index of an expired VOD to swap out. */
   onAddVod: (replace: number | null) => void;
-  onAnotherRaid: (offsetText: string) => void;
+  onAnotherRaid: () => void;
 }) {
   const vods = useRaidVods(search.vods, report.players);
   const activeIndex = activeVodIndex(search);
-  // SAFETY: the search schema keeps at least one VOD and activeVodIndex stays in range.
-  const shown = vods[activeIndex] as RaidVod;
-
-  const [offsetText, setOffsetText] = useState(
-    shown.ref.offset != null ? String(shown.ref.offset) : initialOffsetText,
-  );
+  // Null until the first VOD is added; the log, pulls and timeline work without one.
+  const shown = vods[activeIndex] ?? null;
+  const [offsetText, setOffsetText] = useState(String(shown?.ref.offset ?? 0));
 
   // The field edits the VOD with sound. When that changes (a chip, the speaker, back/forward),
   // it shows the new VOD's saved offset.
@@ -76,7 +71,7 @@ export function RaidPage({
 
   if (offsetFor !== activeIndex) {
     setOffsetFor(activeIndex);
-    setOffsetText(String(shown.ref.offset ?? 0));
+    setOffsetText(String(shown?.ref.offset ?? 0));
   }
 
   /** Where to put the next VOD's player after a switch, so the moment of the pull stays put. */
@@ -105,7 +100,7 @@ export function RaidPage({
     });
   }, []);
 
-  const loaded = shown.source;
+  const loaded = shown?.source;
   const kind = loaded?.kind;
   const videoId = loaded?.id;
   const startedAt = loaded?.startedAt;
@@ -193,7 +188,7 @@ export function RaidPage({
   const seededPull = useRef(false);
 
   useEffect(() => {
-    if (seededPull.current || search.pull != null || shown.status === "loading") return;
+    if (seededPull.current || search.pull != null || shown?.status === "loading") return;
 
     const first =
       report.pulls.find((pull) => pullSecondsIn(pull, source) != null) ?? report.pulls[0];
@@ -201,7 +196,7 @@ export function RaidPage({
     if (!first) return;
     seededPull.current = true;
     onReplaceSearch(searchForPull(search, first.fightId, seekSeconds(first, source)));
-  }, [report.pulls, onReplaceSearch, search, source, shown.status]);
+  }, [report.pulls, onReplaceSearch, search, source, shown?.status]);
 
   useEffect(() => {
     if (!player) return;
@@ -332,7 +327,11 @@ export function RaidPage({
             {[
               report.zone?.name,
               report.guild?.name,
-              vods.length === 1 ? "1 VOD" : `${vods.length} VODs`,
+              vods.length === 0
+                ? "No VOD yet"
+                : vods.length === 1
+                  ? "1 VOD"
+                  : `${vods.length} VODs`,
             ]
               .filter(Boolean)
               .join(" · ")}
@@ -381,7 +380,7 @@ export function RaidPage({
         >
           Open in Warcraft Logs
         </a>
-        <Button type="button" size="sm" variant="outline" onClick={() => onAnotherRaid(offsetText)}>
+        <Button type="button" size="sm" variant="outline" onClick={onAnotherRaid}>
           Load another raid
         </Button>
       </AppHeader>
@@ -437,8 +436,9 @@ export function RaidPage({
           </div>
           <div className="flex min-h-0 flex-1 gap-2">
             {shownIndexes.map((index) => {
-              // SAFETY: shown indexes come from sidePanes or activeVodIndex, both in range.
-              const vod = vods[index] as RaidVod;
+              const vod = vods[index];
+
+              if (!vod) return <NoVodPane key="none" onAdd={() => onAddVod(null)} />;
 
               return (
                 <VideoPane
@@ -477,21 +477,23 @@ export function RaidPage({
                 ) : null}
               </span>
             ) : null}
-            <label className="inline-flex items-center gap-2 text-muted-foreground">
-              {shown.name} offset
-              <Input
-                aria-label={`Offset in seconds for ${shown.name}`}
-                type="number"
-                step="1"
-                value={offsetText}
-                onChange={(event) => {
-                  setOffsetText(event.target.value);
-                  onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
-                }}
-                className="h-6 w-20 px-2 text-right font-mono text-xs"
-              />
-            </label>
-            {shown.ref.by == null ? (
+            {shown ? (
+              <label className="inline-flex items-center gap-2 text-muted-foreground">
+                {shown.name} offset
+                <Input
+                  aria-label={`Offset in seconds for ${shown.name}`}
+                  type="number"
+                  step="1"
+                  value={offsetText}
+                  onChange={(event) => {
+                    setOffsetText(event.target.value);
+                    onReplaceSearch(searchWithOffset(search, offsetNumber(event.target.value)));
+                  }}
+                  className="h-6 w-20 px-2 text-right font-mono text-xs"
+                />
+              </label>
+            ) : null}
+            {shown && shown.ref.by == null ? (
               <Select
                 items={recorders.map((item) => ({ value: String(item.id), label: item.name }))}
                 value={null}
@@ -673,6 +675,26 @@ function VideoPane({
           </Empty>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+/** The player area before the raid has a VOD. */
+function NoVodPane({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="relative min-w-0 flex-1 overflow-hidden rounded-lg border bg-black">
+      <Empty className="absolute inset-0 border-0">
+        <EmptyHeader>
+          <EmptyTitle>Add a VOD to watch the pulls</EmptyTitle>
+          <EmptyDescription>
+            Paste a YouTube or Twitch recording of this raid. The pull list and timeline already
+            work without one.
+          </EmptyDescription>
+        </EmptyHeader>
+        <Button type="button" size="sm" onClick={onAdd}>
+          Add VOD
+        </Button>
+      </Empty>
     </div>
   );
 }

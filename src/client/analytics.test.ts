@@ -141,7 +141,7 @@ describe("router pageviews", () => {
     expect(onResolvedPageview(false, { pathname: `/raid/${REPORT}` })).toBe(false);
   });
 
-  it("rejects a raid link that is missing a VOD", async () => {
+  it("rejects a raid link with a VOD id that does not fit its platform", async () => {
     const rootRoute = createRootRoute();
 
     const raidRoute = createRoute({
@@ -153,7 +153,9 @@ describe("router pageviews", () => {
     const routeTree = rootRoute.addChildren([raidRoute]);
 
     const history = createMemoryHistory({
-      initialEntries: [`/raid/${REPORT}`],
+      initialEntries: [
+        `/raid/${REPORT}?vods=${encodeURIComponent('[{"platform":"twitch","id":"BLJBhzLNt8w"}]')}`,
+      ],
     });
 
     const router = createRouter({ routeTree, history, isServer: false });
