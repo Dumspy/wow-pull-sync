@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * Caption strip above a video pane, e.g. "● Dispy  Pull #12 · Wipe · 86%".
- * It sits above the player, never on it: Twitch won't play a covered embed without a click.
+ * It sits above the player, never on it: Twitch pauses a covered embed and then ignores play().
  */
 function PaneCaption({ className, ...props }: ComponentProps<"div">) {
   return (
