@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+import { SETTLED_TTL_SECONDS, type UpstreamCache } from "./cache";
 import { fixtureEventsBody, fixtureReportBody } from "./fixtures";
 import { HttpError } from "./http-error";
 import { jsonBody, type Json } from "./json";
+import { isLogLive, reportEndMs } from "./live";
+import { readReport, type ReportSummary } from "./parse-api";
 
 export interface EventsRequest {
   dataType: "Deaths" | "Casts" | "Buffs" | "Debuffs" | "Interrupts" | "Dispels";
@@ -116,16 +119,50 @@ async function accessToken(clientId: string, clientSecret: string): Promise<stri
   return token;
 }
 
+/** A report this long past its last event is treated as final and kept for the full lifetime. */
+const SETTLED_REPORT_AGE_MS = 24 * 60 * 60_000;
+
+/** Below that age, a report is kept for this fraction of its age: 6 minutes at an hour old. */
+const YOUNG_REPORT_TTL_FRACTION = 0.1;
+
+/**
+ * Seconds a report and its events may stay cached. A live log is not cached, so a reload shows
+ * the newest pulls. A young one is kept briefly, since a long raid break or a late upload can
+ * still add to it. Only a day-old log gets the full lifetime.
+ */
+export function reportCacheTtl(report: ReportSummary, nowMs: number): number | null {
+  const endMs = reportEndMs(report);
+
+  if (isLogLive(endMs, nowMs)) return null;
+
+  const ageMs = nowMs - endMs;
+
+  if (ageMs >= SETTLED_REPORT_AGE_MS) return SETTLED_TTL_SECONDS;
+
+  return Math.floor((ageMs * YOUNG_REPORT_TTL_FRACTION) / 1000);
+}
+
 export async function fetchReportBody(
   code: string,
   clientId: string,
   clientSecret: string,
   useFixtures: boolean,
+  cache: UpstreamCache,
 ): Promise<Json> {
   if (useFixtures) return fixtureReportBody(code);
-  const token = await accessToken(clientId, clientSecret);
 
-  return graphql(token, REPORT_QUERY, { code });
+  return cache.json(
+    "wcl-report",
+    { query: REPORT_QUERY, code },
+    async () => graphql(await accessToken(clientId, clientSecret), REPORT_QUERY, { code }),
+    (body) => {
+      try {
+        return reportCacheTtl(readReport(body), Date.now());
+      } catch {
+        return null;
+      }
+    },
+  );
 }
 
 async function graphql(token: string, query: string, variables: Json): Promise<Json> {
@@ -147,7 +184,8 @@ async function graphql(token: string, query: string, variables: Json): Promise<J
 
 /**
  * Every event for the fights, following `nextPageTimestamp`. Returns the events as a JSON
- * array. `fixtureKey` picks the recorded array when `useFixtures` is on.
+ * array. `fixtureKey` picks the recorded array when `useFixtures` is on. `ttl` is the
+ * report's cache lifetime from `reportCacheTtl`.
  */
 export async function fetchEventsBody(
   code: string,
@@ -156,9 +194,34 @@ export async function fetchEventsBody(
   useFixtures: boolean,
   fixtureKey: string,
   request: EventsRequest,
+  cache: UpstreamCache,
+  ttl: number | null,
 ): Promise<Json> {
   if (useFixtures) return fixtureEventsBody(code, fixtureKey);
 
+  let complete = false;
+
+  return cache.json(
+    "wcl-events",
+    { query: EVENTS_QUERY, code, request: { ...request } },
+    async () => {
+      const pages = await fetchEventPages(code, clientId, clientSecret, request);
+
+      complete = pages.complete;
+
+      return pages.events;
+    },
+    // A list cut off at `MAX_EVENT_PAGES` is served but not kept.
+    () => (complete ? ttl : null),
+  );
+}
+
+async function fetchEventPages(
+  code: string,
+  clientId: string,
+  clientSecret: string,
+  request: EventsRequest,
+): Promise<{ events: Json[]; complete: boolean }> {
   const token = await accessToken(clientId, clientSecret);
   const events: Json[] = [];
   let startTime: number | null = null;
@@ -189,12 +252,12 @@ export async function fetchEventsBody(
 
     events.push(...result.data);
 
-    if (result.nextPageTimestamp == null) return events;
+    if (result.nextPageTimestamp == null) return { events, complete: true };
 
     startTime = result.nextPageTimestamp;
   }
 
-  return events;
+  return { events, complete: false };
 }
 
 const eventsPageSchema = z.object({
