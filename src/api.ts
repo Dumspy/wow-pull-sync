@@ -1,9 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 
 import { captureException } from "@sentry/cloudflare";
 
+import { UpstreamCache, type CacheStore } from "./cache";
 import {
   type ErrorResponse,
   reportRequestSchema,
@@ -12,7 +14,7 @@ import {
   vodResponseSchema,
 } from "./contract";
 import { HttpError } from "./http-error";
-import { isLogLive } from "./live";
+import { isLogLive, reportEndMs } from "./live";
 import { replayReportBody, replayYoutubeBody } from "./live-replay";
 import { FIXTURE_REPORT_START_MS } from "./fixtures";
 import {
@@ -21,7 +23,6 @@ import {
   readTwitchVideo,
   readYoutubeVideo,
   VOD_ERRORS,
-  type ReportSummary,
   type VodSummary,
 } from "./parse-api";
 import { buildPulls } from "./pulls";
@@ -48,6 +49,28 @@ export interface Env {
   /** Dev-only, with `USE_FIXTURES`: replay the recorded night as if it were live now. */
   FIXTURE_LIVE_REPLAY?: string;
   SENTRY_DSN?: string;
+  /** Workers KV namespace for upstream bodies. Without it every load goes upstream. */
+  PULL_CACHE?: CacheStore;
+}
+
+/** A cache for one request. Writes run after the response when the runtime allows it. */
+function requestCache(c: Context<{ Bindings: Env }>): UpstreamCache {
+  return new UpstreamCache(c.env.PULL_CACHE, (work) => {
+    try {
+      c.executionCtx.waitUntil(work);
+    } catch {
+      // No execution context outside the Workers runtime (tests). The write still runs.
+    }
+  });
+}
+
+/** Milliseconds since `start`, rounded for a Server-Timing entry. */
+function since(start: number): number {
+  return Math.round(performance.now() - start);
+}
+
+function cacheTiming(cache: UpstreamCache): string {
+  return `cache;desc="${cache.hits} hit, ${cache.misses} miss"`;
 }
 
 function bodyMessage(
@@ -106,23 +129,22 @@ async function loadTwitchVideo(
   return { ...video, live: false };
 }
 
-/** When the log last had anything written to it. Older reports may lack `endTime`. */
-function reportEndMs(report: ReportSummary): number {
-  if (report.endTime != null) return report.endTime;
-
-  const lastFightEnd = Math.max(0, ...report.fights.map((fight) => fight.endTime));
-
-  return report.startTime + lastFightEnd;
-}
-
 async function loadYoutubeVideo(
   videoId: string,
   vodUrl: string,
   env: Env,
   useFixtures: boolean,
   replay: boolean,
+  cache: UpstreamCache,
 ): Promise<VodSummary> {
-  const body = await fetchYoutubeBody(videoId, vodUrl, env.YOUTUBE_API_KEY ?? "", useFixtures);
+  const body = await fetchYoutubeBody(
+    videoId,
+    vodUrl,
+    env.YOUTUBE_API_KEY ?? "",
+    useFixtures,
+    cache,
+  );
+
   const now = Date.now();
 
   return readYoutubeVideo(
@@ -170,11 +192,32 @@ export const api = new Hono<{ Bindings: Env }>()
       try {
         const clientId = c.env.WCL_CLIENT_ID ?? "";
         const clientSecret = c.env.WCL_CLIENT_SECRET ?? "";
+        const cache = requestCache(c);
+        const started = performance.now();
 
-        const body = await fetchReportBody(code, clientId, clientSecret, useFixtures);
+        const body = await fetchReportBody(code, clientId, clientSecret, useFixtures, cache);
         const report = readReport(replay ? replayReportBody(body, Date.now()) : body);
 
-        const events = await loadReportEvents(code, clientId, clientSecret, useFixtures, report);
+        const reportMs = since(started);
+        const eventsStarted = performance.now();
+
+        const events = await loadReportEvents(
+          code,
+          clientId,
+          clientSecret,
+          useFixtures,
+          report,
+          cache,
+        );
+
+        c.header(
+          "Server-Timing",
+          [
+            `report;dur=${reportMs};desc="Report"`,
+            `events;dur=${since(eventsStarted)};desc="Report events"`,
+            cacheTiming(cache),
+          ].join(", "),
+        );
 
         const pulls = buildPulls(report, {
           ...events,
@@ -243,10 +286,18 @@ export const api = new Hono<{ Bindings: Env }>()
       }
 
       try {
+        const cache = requestCache(c);
+        const started = performance.now();
+
         const vod =
           link.platform === "twitch"
             ? await loadTwitchVideo(link.id, c.env, useFixtures, replay)
-            : await loadYoutubeVideo(link.id, request.vodUrl, c.env, useFixtures, replay);
+            : await loadYoutubeVideo(link.id, request.vodUrl, c.env, useFixtures, replay, cache);
+
+        c.header(
+          "Server-Timing",
+          [`vod;dur=${since(started)};desc="VOD"`, cacheTiming(cache)].join(", "),
+        );
 
         const response = vodResponseSchema.parse({
           platform: link.platform,

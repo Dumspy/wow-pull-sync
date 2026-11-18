@@ -1,9 +1,10 @@
 import { z } from "zod";
 
+import type { UpstreamCache } from "./cache";
 import { HttpError } from "./http-error";
 import { readEvents, type ReportSummary, type WclEvent } from "./parse-api";
 import { NO_EVENTS, type ReportEvents } from "./pulls";
-import { fetchEventsBody, type EventsRequest } from "./wcl";
+import { fetchEventsBody, reportCacheTtl, type EventsRequest } from "./wcl";
 
 /**
  * Deaths and enemy casts for every boss fight. The pull list does not depend on any of this,
@@ -15,6 +16,7 @@ export async function loadReportEvents(
   clientSecret: string,
   useFixtures: boolean,
   report: ReportSummary,
+  cache: UpstreamCache,
 ): Promise<ReportEvents> {
   const bossFightIds = report.fights
     .filter((fight) => fight.encounterID > 0)
@@ -22,8 +24,11 @@ export async function loadReportEvents(
 
   if (bossFightIds.length === 0) return NO_EVENTS;
 
+  // Events can only grow while the log does, so they keep the report's lifetime.
+  const ttl = reportCacheTtl(report, Date.now());
+
   const request = (key: string, query: EventsRequest) =>
-    fetchEventsBody(code, clientId, clientSecret, useFixtures, key, query)
+    fetchEventsBody(code, clientId, clientSecret, useFixtures, key, query, cache, ttl)
       .then(readEvents)
       .catch(keepGoing);
 

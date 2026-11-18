@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { UpstreamCache } from "./cache";
 import { reportResponseSchema } from "./contract";
 import { fixtureReportBody } from "./fixtures";
 import { readReport } from "./parse-api";
@@ -9,10 +10,11 @@ import { loadReportEvents } from "./report-events";
 import app from "./worker";
 
 const CODE = "TPYJD2c4VkLZfBp9";
+const NO_CACHE = new UpstreamCache(undefined, () => {});
 
 describe("recorded events", async () => {
   const report = readReport(fixtureReportBody(CODE));
-  const events = await loadReportEvents(CODE, "", "", true, report);
+  const events = await loadReportEvents(CODE, "", "", true, report, NO_CACHE);
   const pulls = buildPulls(report, events);
   const pull = (fightId: number) => pulls.find((item) => item.fightId === fightId);
 
