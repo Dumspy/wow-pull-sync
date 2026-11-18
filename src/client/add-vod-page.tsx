@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { vodLengthSeconds } from "../live";
 import { pullSecondsIn, type VideoSource } from "../source";
 import type { Pull, ReportResponse } from "../types";
 import { parseVodLink } from "../urls";
@@ -31,6 +32,7 @@ import { VodLoadError, vodQueryOptions } from "./raid-queries";
 import { raidSearchFrom, type AddVodSearch, type SearchVod } from "./raid-search";
 import { PLATFORM_LABELS } from "./raid-vods";
 import { usePlayhead } from "./timeline";
+import { useNow } from "./use-now";
 
 const NUDGES = [-1, -0.1, 0.1, 1] as const;
 
@@ -38,7 +40,7 @@ const NUDGES = [-1, -0.1, 0.1, 1] as const;
 type LinkState =
   | { kind: "empty" }
   | { kind: "checking" }
-  | { kind: "ready"; source: VideoSource }
+  | { kind: "ready"; source: VideoSource; live: boolean }
   | { kind: "error"; title: string; note: string };
 
 export function AddVodPage({
@@ -78,6 +80,8 @@ export function AddVodPage({
   });
 
   const loaded = query.data;
+  const live = loaded?.live === true;
+  const now = useNow(live);
 
   // The video at offset 0. The check pulls are picked on it, so nudging the offset never swaps
   // the anchor mid-alignment.
@@ -88,15 +92,15 @@ export function AddVodPage({
             kind: loaded.platform,
             id: loaded.id,
             startedAt: loaded.startedAtMs,
-            duration: loaded.durationSeconds,
+            duration: vodLengthSeconds(loaded, now),
             offset: 0,
           }
         : null,
-    [loaded],
+    [loaded, now],
   );
 
   const source = useMemo(() => (video ? { ...video, offset } : null), [video, offset]);
-  const state = linkState(link, parsed != null, duplicate, query.error, source);
+  const state = linkState(link, parsed != null, duplicate, query.error, source, live);
 
   const checks = useMemo(
     () => (video ? pullsToCheck(report.pulls, video) : []),
@@ -359,6 +363,7 @@ function linkState(
   duplicate: boolean,
   error: Error | null,
   source: VideoSource | null,
+  live: boolean,
 ): LinkState {
   if (link.trim() === "") return { kind: "empty" };
 
@@ -372,7 +377,7 @@ function linkState(
     };
   }
 
-  if (source) return { kind: "ready", source };
+  if (source) return { kind: "ready", source, live };
 
   if (error) {
     const reason = error instanceof VodLoadError ? error.reason : null;
@@ -391,8 +396,8 @@ function LinkStatus({ state }: { state: LinkState }) {
       <span className="flex items-center gap-2 text-xs text-muted-foreground">
         <Dot tone="success" />
         <span className="text-foreground">{PLATFORM_LABELS[state.source.kind]}</span>
-        <span className="font-mono">{formatClock(state.source.duration)}</span>· a finished
-        recording
+        <span className="font-mono">{formatClock(state.source.duration)}</span>
+        {state.live ? "so far · still live" : "· a finished recording"}
       </span>
     );
   }

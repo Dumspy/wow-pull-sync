@@ -1,6 +1,6 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, Outlet } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { z } from "zod";
 
 import type { QueryClient } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { DesignGallery } from "./design-gallery";
 import { Devtools } from "./devtools";
 import { PastePage } from "./paste-page";
-import { RaidPage } from "./raid-page";
+import { RaidPage, type RaidRefresh } from "./raid-page";
 import { reportQueryOptions, vodQueryOptions } from "./raid-queries";
 import { vodRef } from "./raid-vods";
 import { AddVodPage } from "./add-vod-page";
@@ -94,8 +94,29 @@ function RaidRoute() {
   const search = raidRoute.useSearch();
   const { reportCode } = raidRoute.useParams();
   const navigate = raidRoute.useNavigate();
+  const queryClient = useQueryClient();
+  const reportQuery = useSuspenseQuery(reportQueryOptions(reportCode));
+  const report = reportQuery.data;
+  const { refetch } = reportQuery;
 
-  const { data: report } = useSuspenseQuery(reportQueryOptions(reportCode));
+  const vodKeys = useMemo(
+    () => search.vods.map((vod) => vodQueryOptions(vodRef(vod)).queryKey),
+    [search.vods],
+  );
+
+  // Fetches the VODs too: a stream that was live may have ended, and a failed one gets a retry.
+  const onRefresh = useCallback(() => {
+    void refetch();
+
+    for (const queryKey of vodKeys) void queryClient.refetchQueries({ queryKey });
+  }, [refetch, queryClient, vodKeys]);
+
+  const refresh: RaidRefresh = {
+    updatedAt: reportQuery.dataUpdatedAt,
+    refreshing: reportQuery.isFetching,
+    failed: reportQuery.isRefetchError,
+    onRefresh,
+  };
 
   const onSelectPull = useCallback(
     (fightId: number, seconds: number | null) => {
@@ -129,6 +150,7 @@ function RaidRoute() {
     <RaidPage
       report={report}
       search={search}
+      refresh={refresh}
       onSelectPull={onSelectPull}
       onReplaceSearch={onReplaceSearch}
       onAddVod={onAddVod}

@@ -25,6 +25,9 @@ export const FIXTURE_TWITCH_HIGHLIGHT_ID = "2916739203";
  */
 export const OUTSIDE_FIXTURE = "outside";
 
+/** Wall-clock start of the recorded report, epoch milliseconds. */
+export const FIXTURE_REPORT_START_MS = wclReport.data.reportData.report.startTime;
+
 export function fixtureReportBody(code: string): Json {
   if (code !== FIXTURE_REPORT_CODE) {
     return { data: { reportData: { report: null } } };

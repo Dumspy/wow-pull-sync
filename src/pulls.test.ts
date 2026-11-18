@@ -168,7 +168,7 @@ describe("external response errors", () => {
           {
             liveStreamingDetails: {
               actualStartTime: "2020-01-01T00:00:00Z",
-              actualEndTime: "2020-01-01T01:00:00Z",
+              actualEndTime: "not-a-date",
             },
           },
         ],
@@ -216,22 +216,73 @@ describe("youtube errors", () => {
     expect(() => readYoutubeVideo(body)).toThrow("This isn't a recorded live stream.");
   });
 
-  it("says a stream that is still running, or not started, is still live", () => {
-    const running = { actualStartTime: "2026-10-29T18:38:02Z" };
-    const scheduled = { scheduledStartTime: "2026-10-29T18:38:02Z" };
+  it("says a stream that has not started yet is upcoming", () => {
+    try {
+      readYoutubeVideo(
+        jsonBody.parse({
+          items: [
+            {
+              id: "BLJBhzLNt8w",
+              liveStreamingDetails: { scheduledStartTime: "2026-10-29T18:38:02Z" },
+            },
+          ],
+        }),
+      );
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpError);
 
-    for (const liveStreamingDetails of [running, scheduled]) {
-      try {
-        readYoutubeVideo(jsonBody.parse({ items: [{ id: "BLJBhzLNt8w", liveStreamingDetails }] }));
-        expect.unreachable();
-      } catch (error) {
-        expect(error).toBeInstanceOf(HttpError);
+      if (!(error instanceof HttpError)) return;
 
-        if (!(error instanceof HttpError)) return;
-
-        expect(error.status).toBe(400);
-        expect(error.reason).toBe("live");
-      }
+      expect(error.status).toBe(400);
+      expect(error.reason).toBe("upcoming");
     }
+  });
+});
+
+describe("youtube live streams", () => {
+  const start = Date.parse("2026-10-29T18:38:02Z");
+
+  it("reads a running stream as live, as long as it has run so far", () => {
+    const vod = readYoutubeVideo(
+      jsonBody.parse({
+        items: [
+          {
+            id: "BLJBhzLNt8w",
+            snippet: { title: "Raid night" },
+            contentDetails: { duration: "P0D" },
+            liveStreamingDetails: { actualStartTime: "2026-10-29T18:38:02Z" },
+          },
+        ],
+      }),
+      start + 90 * 60_000,
+    );
+
+    expect(vod).toEqual({
+      videoId: "BLJBhzLNt8w",
+      title: "Raid night",
+      actualStartMs: start,
+      durationSeconds: 90 * 60,
+      live: true,
+    });
+  });
+
+  it("uses the stream times for a stream that just ended and has no length yet", () => {
+    const vod = readYoutubeVideo(
+      jsonBody.parse({
+        items: [
+          {
+            id: "BLJBhzLNt8w",
+            contentDetails: { duration: "P0D" },
+            liveStreamingDetails: {
+              actualStartTime: "2026-10-29T18:38:02Z",
+              actualEndTime: "2026-10-29T21:38:02Z",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(vod).toMatchObject({ durationSeconds: 3 * 3600, live: false });
   });
 });

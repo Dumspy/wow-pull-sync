@@ -10,9 +10,13 @@ export const VOD_ERROR_COPY: Record<VodErrorReason, { title: string; note: strin
     title: "We couldn't find this video",
     note: "Check the link, and that the video is public or unlisted.",
   },
+  upcoming: {
+    title: "This stream hasn't started yet",
+    note: "Add it once the stream is live.",
+  },
   live: {
-    title: "This stream is still live",
-    note: "Add it once the stream has ended and the recording is available.",
+    title: "This Twitch stream is still live",
+    note: "Twitch VODs can be added once the stream has ended. Live raids work with YouTube streams.",
   },
   "not-stream": {
     title: "This isn't a recorded live stream",

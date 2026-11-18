@@ -8,6 +8,15 @@ import { vodLink, type VodRef } from "../urls";
 
 const client = hc<AppType>("/api");
 
+/** How often a live log is fetched again for new pulls, while the tab is in view. */
+export const LIVE_REPORT_REFRESH_MS = 30_000;
+
+/**
+ * How often a running stream is checked again, to see it end and get its final length. The page
+ * grows its length in between, so this is slow: each check spends YouTube API quota.
+ */
+export const LIVE_VOD_REFRESH_MS = 5 * 60_000;
+
 /** The report, roster and boss pulls. Shared by every VOD of the raid. */
 export function reportQueryOptions(reportCode: string) {
   return queryOptions({
@@ -15,6 +24,7 @@ export function reportQueryOptions(reportCode: string) {
     retry: false,
     staleTime: 60_000,
     queryFn: () => loadReport(reportCode),
+    refetchInterval: (query) => (query.state.data?.live ? LIVE_REPORT_REFRESH_MS : false),
   });
 }
 
@@ -38,6 +48,7 @@ export function vodQueryOptions(vod: VodRef) {
     retryOnMount: false,
     staleTime: 60_000,
     queryFn: () => loadVod(vod),
+    refetchInterval: (query) => (query.state.data?.live ? LIVE_VOD_REFRESH_MS : false),
   });
 }
 

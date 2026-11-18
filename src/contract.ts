@@ -115,6 +115,8 @@ export const reportResponseSchema = z.object({
   /** Names for the spell ids in the pulls' casts. */
   abilities: z.array(abilitySchema),
   pulls: z.array(pullSchema),
+  /** True while the log is still being written, so the page keeps refreshing it. */
+  live: z.boolean(),
 });
 
 export type ReportResponse = z.output<typeof reportResponseSchema>;
@@ -123,13 +125,17 @@ export const vodPlatformSchema = z.enum(["youtube", "twitch"]);
 
 export type VodPlatform = z.output<typeof vodPlatformSchema>;
 
-/** Body of `POST /api/vod`. `startedAtMs` is wall-clock epoch milliseconds of video second 0. */
+/**
+ * Body of `POST /api/vod`. `startedAtMs` is wall-clock epoch milliseconds of video second 0.
+ * While `live`, the stream is still running and `durationSeconds` is its length so far.
+ */
 export const vodResponseSchema = z.object({
   platform: vodPlatformSchema,
   id: z.string(),
   title: z.string(),
   startedAtMs: z.number(),
   durationSeconds: z.number(),
+  live: z.boolean(),
 });
 
 export type VodResponse = z.output<typeof vodResponseSchema>;
@@ -139,7 +145,13 @@ export const reportRequestSchema = z.object({ reportUrl: z.string() });
 export const vodRequestSchema = z.object({ vodUrl: z.string() });
 
 /** Why a VOD link can't be used. The Add VOD page picks its message from this. */
-export const vodErrorReasonSchema = z.enum(["unsupported", "not-found", "live", "not-stream"]);
+export const vodErrorReasonSchema = z.enum([
+  "unsupported",
+  "not-found",
+  "upcoming",
+  "live",
+  "not-stream",
+]);
 
 export type VodErrorReason = z.output<typeof vodErrorReasonSchema>;
 

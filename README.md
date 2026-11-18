@@ -2,7 +2,9 @@
 
 Paste a Warcraft Logs report, then add the YouTube or Twitch VODs from that night. Each VOD names the player who recorded it, picked from the log's players. The page embeds the VODs and lists every boss pull. Click a pull and the player seeks to when it started.
 
-A pull's place in the video is wall-clock time. Warcraft Logs gives the report start and each fight's offset from that start. YouTube's `liveStreamingDetails.actualStartTime` is second 0 of a finished live stream. For a Twitch past broadcast, second 0 is the video's `created_at`. Twitch has no exact start time for past streams, and `created_at` can be a few seconds late, so the offset absorbs the difference. The seek time is those two instants compared, plus an optional offset in seconds (stream delay, or a VOD that was trimmed). Trash fights are left out. A pull that falls outside the VOD is marked "not in VOD".
+A pull's place in the video is wall-clock time. Warcraft Logs gives the report start and each fight's offset from that start. YouTube's `liveStreamingDetails.actualStartTime` is second 0 of a live stream, finished or still running. For a Twitch past broadcast, second 0 is the video's `created_at`. Twitch has no exact start time for past streams, and `created_at` can be a few seconds late, so the offset absorbs the difference. The seek time is those two instants compared, plus an optional offset in seconds (stream delay, or a VOD that was trimmed). Trash fights are left out. A pull that falls outside the VOD is marked "not in VOD".
+
+A raid can be watched while it happens. Warcraft Logs has no "still logging" flag, so a report whose end time is less than 30 minutes old counts as live: the page shows a Live badge and fetches the report again every 30 seconds while the tab is in view, so new pulls show up on their own. A YouTube stream that is still running can be added as a VOD. Its length grows with the clock on the page, and the page checks it every 5 minutes to see it end. Twitch VODs can only be added once the stream has ended. A log that isn't live gets a Refresh button instead, which fetches the report and its VODs again.
 
 ```
 vodSeconds = (reportStart + fight.startTime - vodStart) / 1000 + offset
@@ -25,6 +27,7 @@ Fill in `.dev.vars`:
 - `YOUTUBE_API_KEY` — a YouTube Data API v3 key. Enable the API and create a key in the [Google Cloud console](https://console.cloud.google.com/apis/credentials), as described in the [YouTube Data API overview](https://developers.google.com/youtube/v3/getting-started).
 - `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` — a Twitch application. Register one in the [Twitch developer console](https://dev.twitch.tv/console/apps). The app uses the client-credentials flow to read public videos.
 - `USE_FIXTURES` — set to `true` to serve the recorded responses in `fixtures/` instead of calling those APIs. Leave it empty for real requests.
+- `FIXTURE_LIVE_REPLAY` — with `USE_FIXTURES=true`, set to `true` to replay the recorded night as if it were live now. The first request starts the replay 40 minutes into the night; the log then gains each pull as it ends, and the YouTube fixture reads as a running stream until its recorded end. The Twitch fixture is rejected as still live. Restarting the dev server starts the replay over.
 
 Do not set `USE_FIXTURES` in production.
 
